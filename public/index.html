@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OS Inteligente · Opy Health</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">OS</span> <b>Inteligente</b> <small id="hospital"></small></div>
+  <nav>
+    <button data-tab="registrar" class="on">Registrar OS</button>
+    <button data-tab="dashboard">Dashboard</button>
+    <button data-tab="historico">Histórico</button>
+  </nav>
+</header>
+
+<main>
+<!-- REGISTRAR -->
+<section id="tab-registrar" class="tab on">
+  <div class="phone">
+    <div class="phone-head"><b>Nova ordem de serviço</b><span id="proxCodigo" class="code"></span></div>
+
+    <div class="step">1 · Descreva a ocorrência</div>
+    <div class="mic-row">
+      <button id="mic" class="mic" title="Gravar por voz" aria-label="Gravar por voz">🎙</button>
+      <div class="mic-info"><b id="micStatus">Toque para falar</b><small id="micHint">Voz (Chrome/Edge) ou digite abaixo</small></div>
+    </div>
+    <textarea id="texto" rows="3" placeholder="Ex.: Infiltração no teto do corredor, perto do leito 12. Está pingando, parece ser cano."></textarea>
+    <div class="row">
+      <label class="file">📷 Anexar foto<input type="file" id="foto" accept="image/*" capture="environment" hidden></label>
+      <span id="fotoNome" class="muted"></span>
+      <button id="btnDecupar" class="btn">Decupar com a IA</button>
+    </div>
+    <div class="exemplos muted">Exemplos: <a href="#" data-ex="Infiltração no teto do corredor, perto do leito 12. Está pingando, parece ser cano.">infiltração</a> · <a href="#" data-ex="Ar condicionado da UTI do primeiro andar não está gelando, paciente com calor">ar-condicionado</a> · <a href="#" data-ex="Lâmpada queimada na recepção">lâmpada</a> · <a href="#" data-ex="Falta de oxigênio no ponto de gás do centro cirúrgico, urgente">gás medicinal</a></div>
+
+    <form id="form" class="hidden">
+      <div class="step">2 · Confira o que a IA preencheu <small class="muted">(verde = IA · laranja = revisar)</small></div>
+      <div class="grid">
+        <label data-c="local">Pavimento<select id="f-pavimento"></select></label>
+        <label data-c="local">Ambiente<select id="f-ambiente"></select></label>
+        <label class="full">Detalhe do local<input id="f-detalhe" placeholder="Ex.: Leito 12, Sala 3"></label>
+        <label data-c="ocorrencia">Ocorrência<select id="f-ocorrencia"></select></label>
+        <label data-c="ocorrencia">Tipo de serviço<input id="f-tipo"></label>
+        <label data-c="causa" class="full">Causa provável<input id="f-causa"></label>
+        <label data-c="prioridade" class="full">Prioridade<select id="f-prioridade"></select></label>
+        <label class="full">Descrição<textarea id="f-descricao" rows="2"></textarea></label>
+      </div>
+      <button class="btn big" type="submit">Confirmar ordem de serviço</button>
+    </form>
+    <div id="ok" class="ok hidden"></div>
+  </div>
+  <aside class="side">
+    <h3>Como funciona</h3>
+    <ol>
+      <li><b>Captura simples</b>: fale (ou digite) o problema, sem formulário.</li>
+      <li><b>Decupagem</b>: a IA identifica local, ocorrência, causa e prioridade.</li>
+      <li><b>Confirmação</b>: ajuste em um toque.</li>
+      <li><b>Custos</b>: puxados do Neovero (aqui simulado por uma planilha Excel) e levados ao dashboard.</li>
+    </ol>
+    <p class="muted">MVP: a decupagem usa regras e palavras-chave; a foto é anexada à OS, mas ainda não é interpretada.</p>
+  </aside>
+</section>
+
+<!-- DASHBOARD -->
+<section id="tab-dashboard" class="tab">
+  <div class="bar"><h2>Dashboard de manutenção</h2><span class="muted" id="dashAt"></span>
+    <a class="btn ghost" href="/neovero/planilha.xlsx">⬇ Planilha Neovero (simulador)</a></div>
+  <div id="kpis" class="kpis"></div>
+  <div class="cols">
+    <div class="card"><h3>🔥 Ranking de prioridade <small>(OS em aberto)</small></h3><div id="rkPrio"></div></div>
+    <div class="card"><h3>💰 Ranking das OS mais caras</h3><div id="rkCaras"></div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Custo por mês</h3><div id="chMes"></div></div>
+    <div class="card"><h3>Custo por tipo de serviço</h3><div id="chTipo"></div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Custo por ambiente (top 8)</h3><div id="chAmb"></div></div>
+    <div class="card"><h3>OS por prioridade</h3><div id="chPrio"></div></div>
+  </div>
+</section>
+
+<!-- HISTÓRICO -->
+<section id="tab-historico" class="tab">
+  <div class="bar"><h2>Histórico de ordens de serviço</h2>
+    <input id="busca" placeholder="Buscar código, local, ocorrência…">
+    <select id="fStatus"><option value="">Todos os status</option><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select>
+    <select id="fPrio"><option value="">Todas as prioridades</option></select>
+    <select id="fOrdem"><option value="data">Mais recentes</option><option value="custo">Maior custo</option></select>
+  </div>
+  <div class="card tbl-wrap"><table id="tbl"><thead><tr><th>Código</th><th>Abertura</th><th>Local</th><th>Ocorrência</th><th>Prioridade</th><th>Status</th><th class="r">Custo</th></tr></thead><tbody></tbody></table></div>
+</section>
+</main>
+
+<dialog id="dlg"><div id="dlgBody"></div><button class="btn ghost" id="dlgClose">Fechar</button></dialog>
+<script src="app.js"></script>
+</body>
+</html>

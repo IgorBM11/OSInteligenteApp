@@ -1,0 +1,13 @@
+{
+  "name": "os-inteligente",
+  "version": "0.1.0",
+  "description": "OS Inteligente (Opy Health) - MVP: registro por voz/texto, decupagem, custos via simulador Neovero (Excel) e dashboard.",
+  "private": true,
+  "scripts": {
+    "seed": "node scripts/seed.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0"
+  }
+}

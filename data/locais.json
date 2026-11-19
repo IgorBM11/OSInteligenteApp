@@ -1,0 +1,21 @@
+{
+  "_aviso": "PLACEHOLDER: estrutura típica de hospital, baseada no Hospital Delphina Aziz (Manaus). Substituir pelo cadastro real de Ambientes > Pavimentos do sistema da Opy (a tela autenticada não pôde ser lida nesta sessão).",
+  "hospital": "Hospital Delphina Aziz",
+  "ambientes": [
+    { "nome": "Recepção / Acolhimento", "pavimento": "Térreo", "aliases": ["recepcao", "acolhimento", "hall de entrada", "triagem"] },
+    { "nome": "Pronto-Socorro", "pavimento": "Térreo", "aliases": ["pronto socorro", "pronto-socorro", " ps ", "emergencia", "sala vermelha", "sala amarela"] },
+    { "nome": "Diagnóstico por Imagem", "pavimento": "Térreo", "aliases": ["imagem", "tomografia", "raio x", "raio-x", "ressonancia", "ultrassom"] },
+    { "nome": "Farmácia", "pavimento": "Térreo", "aliases": ["farmacia", "dispensacao"] },
+    { "nome": "Laboratório", "pavimento": "Térreo", "aliases": ["laboratorio", "coleta"] },
+    { "nome": "Refeitório / Nutrição", "pavimento": "Subsolo", "aliases": ["refeitorio", "nutricao", "cozinha", "copa"] },
+    { "nome": "Lavanderia", "pavimento": "Subsolo", "aliases": ["lavanderia", "rouparia"] },
+    { "nome": "Central de Gases / Utilidades", "pavimento": "Subsolo", "aliases": ["central de gases", "casa de maquinas", "gerador", "subestacao", "cisterna", "central de agua gelada"] },
+    { "nome": "Centro Cirúrgico", "pavimento": "1º Pavimento", "aliases": ["centro cirurgico", "sala cirurgica", "bloco cirurgico", "sala de cirurgia"] },
+    { "nome": "CME", "pavimento": "1º Pavimento", "aliases": ["cme", "central de material", "esterilizacao"] },
+    { "nome": "UTI Adulto", "pavimento": "1º Pavimento", "aliases": ["uti adulto", "uti", "terapia intensiva", "cti"] },
+    { "nome": "Enfermaria 2º Andar", "pavimento": "2º Pavimento", "aliases": ["enfermaria", "leito", "quarto", "posto de enfermagem", "apartamento"] },
+    { "nome": "Ala Pediátrica", "pavimento": "2º Pavimento", "aliases": ["pediatria", "pediatrica", "brinquedoteca"] },
+    { "nome": "Administrativo", "pavimento": "3º Pavimento", "aliases": ["administrativo", "diretoria", "faturamento", "rh", "sala de reuniao", "auditorio"] },
+    { "nome": "Corredor / Circulação", "pavimento": "Geral", "aliases": ["corredor", "circulacao", "escada", "elevador", "saguao", "banheiro", "sanitario", "estacionamento"] }
+  ]
+}
