@@ -46,9 +46,9 @@ async function build() {
     porPavimento: agrupa('pavimento').sort((a, b) => b.custo - a.custo),
     porPrioridade: PRIORIDADES.map((p) => ({ chave: p, qtd: lista.filter((o) => o.prioridade === p).length })),
     mensal,
-    rankingCaras: [...comCusto].sort((a, b) => b.custo - a.custo).slice(0, 10).map(slim),
+    rankingCusto: [...comCusto].sort((a, b) => b.custo - a.custo).map(slim),
     rankingPrioridade: abertas.map((o) => ({ ...slim(o), score: score(o, o.custo, maxCusto, agora), diasAberta: Math.floor((agora - new Date(o.abertura)) / DIA) }))
-      .sort((a, b) => b.score - a.score).slice(0, 10),
+      .sort((a, b) => b.score - a.score),
     historico: lista.map(slim).sort((a, b) => b.abertura.localeCompare(a.abertura)),
   };
 }

@@ -76,4 +76,9 @@ function parseOS(texto) {
   };
 }
 
-module.exports = { parseOS };
+function vazio() {
+  return { descricao: '', pavimento: '', ambiente: '', detalheLocal: '', tipo: '', ocorrencia: '', causa: '', prioridade: '',
+    _confianca: { local: 'revisar', ocorrencia: 'revisar', prioridade: 'revisar', causa: 'revisar' } };
+}
+
+module.exports = { parseOS, vazio };

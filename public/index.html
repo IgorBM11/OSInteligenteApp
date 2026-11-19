@@ -4,13 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OS Inteligente · Opy Health</title>
+<link rel="icon" href="opy-logo.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top">
-  <div class="brand"><span class="logo">OS</span> <b>Inteligente</b> <small id="hospital"></small></div>
+  <div class="brand">
+    <img src="opy-logo.png" alt="Opy Health" class="logo">
+    <span class="sep"></span>
+    <div><b>OS Inteligente</b><small id="hospital"></small></div>
+  </div>
   <nav>
-    <button data-tab="registrar" class="on">Registrar OS</button>
+    <button data-tab="registrar" class="on">Registrar</button>
     <button data-tab="dashboard">Dashboard</button>
     <button data-tab="historico">Histórico</button>
   </nav>
@@ -19,82 +24,92 @@
 <main>
 <!-- REGISTRAR -->
 <section id="tab-registrar" class="tab on">
-  <div class="phone">
-    <div class="phone-head"><b>Nova ordem de serviço</b><span id="proxCodigo" class="code"></span></div>
+  <div class="hero">
+    <h1>O que está acontecendo?</h1>
+    <p class="sub">Fale, escreva ou fotografe a ocorrência. A IA preenche a ordem de serviço para você.</p>
 
-    <div class="step">1 · Descreva a ocorrência</div>
-    <div class="mic-row">
-      <button id="mic" class="mic" title="Gravar por voz" aria-label="Gravar por voz">🎙</button>
-      <div class="mic-info"><b id="micStatus">Toque para falar</b><small id="micHint">Voz (Chrome/Edge) ou digite abaixo</small></div>
+    <div class="composer">
+      <div id="fotoChip" class="foto-chip hidden"><img id="fotoThumb" alt="Foto da ocorrência"><button type="button" id="fotoRemover" aria-label="Remover foto">×</button></div>
+      <textarea id="texto" rows="2" placeholder="Ex.: Infiltração no teto do corredor, perto do leito 12. Está pingando, parece ser cano."></textarea>
+      <div class="tools">
+        <button type="button" id="btnCamera" class="icon" title="Tirar foto" aria-label="Tirar foto"><svg viewBox="0 0 24 24"><path d="M9 4 7.2 6H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.2L15 4H9Zm3 4.5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg></button>
+        <button type="button" id="mic" class="icon" title="Falar" aria-label="Gravar por voz"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/></svg></button>
+        <span id="micStatus" class="muted"></span>
+        <button type="button" id="btnDecupar" class="send" title="Preencher com a IA" aria-label="Preencher com a IA"><span>Preencher com a IA</span><svg viewBox="0 0 24 24"><path d="M12 4 4 12l1.4 1.4L11 7.8V20h2V7.8l5.6 5.6L20 12l-8-8Z"/></svg></button>
+      </div>
     </div>
-    <textarea id="texto" rows="3" placeholder="Ex.: Infiltração no teto do corredor, perto do leito 12. Está pingando, parece ser cano."></textarea>
-    <div class="row">
-      <label class="file">📷 Anexar foto<input type="file" id="foto" accept="image/*" capture="environment" hidden></label>
-      <span id="fotoNome" class="muted"></span>
-      <button id="btnDecupar" class="btn">Decupar com a IA</button>
+    <div class="exemplos">Experimente:
+      <a href="#" data-ex="Infiltração no teto do corredor, perto do leito 12. Está pingando, parece ser cano.">infiltração</a>
+      <a href="#" data-ex="Ar condicionado da UTI do primeiro andar não está gelando, paciente com calor">ar-condicionado</a>
+      <a href="#" data-ex="Lâmpada queimada na recepção">lâmpada</a>
+      <a href="#" data-ex="Falta de oxigênio no ponto de gás do centro cirúrgico, urgente">gás medicinal</a>
     </div>
-    <div class="exemplos muted">Exemplos: <a href="#" data-ex="Infiltração no teto do corredor, perto do leito 12. Está pingando, parece ser cano.">infiltração</a> · <a href="#" data-ex="Ar condicionado da UTI do primeiro andar não está gelando, paciente com calor">ar-condicionado</a> · <a href="#" data-ex="Lâmpada queimada na recepção">lâmpada</a> · <a href="#" data-ex="Falta de oxigênio no ponto de gás do centro cirúrgico, urgente">gás medicinal</a></div>
 
-    <form id="form" class="hidden">
-      <div class="step">2 · Confira o que a IA preencheu <small class="muted">(verde = IA · laranja = revisar)</small></div>
+    <form id="form" class="review hidden" novalidate>
+      <div class="review-head"><h2>Confira a ordem de serviço</h2><span class="code" id="proxCodigo"></span></div>
+      <div id="aviso" class="aviso hidden"></div>
+      <div class="legend"><i class="d ia"></i>Preenchido pela IA <i class="d revisar"></i>Confira <i class="d vazio"></i>Preencher</div>
       <div class="grid">
-        <label data-c="local">Pavimento<select id="f-pavimento"></select></label>
-        <label data-c="local">Ambiente<select id="f-ambiente"></select></label>
-        <label class="full">Detalhe do local<input id="f-detalhe" placeholder="Ex.: Leito 12, Sala 3"></label>
-        <label data-c="ocorrencia">Ocorrência<select id="f-ocorrencia"></select></label>
-        <label data-c="ocorrencia">Tipo de serviço<input id="f-tipo"></label>
-        <label data-c="causa" class="full">Causa provável<input id="f-causa"></label>
-        <label data-c="prioridade" class="full">Prioridade<select id="f-prioridade"></select></label>
-        <label class="full">Descrição<textarea id="f-descricao" rows="2"></textarea></label>
+        <label data-f="f-pavimento">Pavimento<select id="f-pavimento" required></select></label>
+        <label data-f="f-ambiente">Ambiente<select id="f-ambiente" required></select></label>
+        <label data-f="f-detalhe" class="full">Detalhe do local <em>(opcional)</em><input id="f-detalhe" placeholder="Ex.: Leito 12, Sala 3"></label>
+        <label data-f="f-ocorrencia">Ocorrência<select id="f-ocorrencia" required></select></label>
+        <label data-f="f-tipo">Tipo de serviço<input id="f-tipo"></label>
+        <label data-f="f-causa" class="full">Causa provável<input id="f-causa"></label>
+        <label data-f="f-prioridade" class="full">Prioridade<select id="f-prioridade" required></select></label>
+        <label data-f="f-descricao" class="full">Descrição<textarea id="f-descricao" rows="2"></textarea></label>
       </div>
       <button class="btn big" type="submit">Confirmar ordem de serviço</button>
     </form>
-    <div id="ok" class="ok hidden"></div>
+
+    <div class="steps">
+      <div><b>1 · Captura simples</b><span>Voz, texto ou foto na hora, sem formulário.</span></div>
+      <div><b>2 · Preenchimento pela IA</b><span>Local, tipo de serviço, ocorrência, causa e prioridade.</span></div>
+      <div><b>3 · Confirmação</b><span>Você confere e ajusta; os campos que a IA não soube ficam destacados.</span></div>
+      <div><b>4 · Custo e análise</b><span>O custo vem do Neovero e a OS entra no dashboard e no histórico.</span></div>
+    </div>
   </div>
-  <aside class="side">
-    <h3>Como funciona</h3>
-    <ol>
-      <li><b>Captura simples</b>: fale (ou digite) o problema, sem formulário.</li>
-      <li><b>Decupagem</b>: a IA identifica local, ocorrência, causa e prioridade.</li>
-      <li><b>Confirmação</b>: ajuste em um toque.</li>
-      <li><b>Custos</b>: puxados do Neovero (aqui simulado por uma planilha Excel) e levados ao dashboard.</li>
-    </ol>
-    <p class="muted">MVP: a decupagem usa regras e palavras-chave; a foto é anexada à OS, mas ainda não é interpretada.</p>
-  </aside>
 </section>
 
 <!-- DASHBOARD -->
 <section id="tab-dashboard" class="tab">
-  <div class="bar"><h2>Dashboard de manutenção</h2><span class="muted" id="dashAt"></span>
-    <a class="btn ghost" href="/neovero/planilha.xlsx">⬇ Planilha Neovero (simulador)</a></div>
+  <div class="bar"><div><h2>Dashboard de manutenção</h2><span class="muted" id="dashAt"></span></div>
+    <a class="btn ghost" href="/neovero/planilha.xlsx">⬇ Base de custos Neovero <small>(simulação · .xlsx)</small></a></div>
   <div id="kpis" class="kpis"></div>
   <div class="cols">
-    <div class="card"><h3>🔥 Ranking de prioridade <small>(OS em aberto)</small></h3><div id="rkPrio"></div></div>
-    <div class="card"><h3>💰 Ranking das OS mais caras</h3><div id="rkCaras"></div></div>
+    <div class="card"><h3>Custo mensal</h3><div id="chMes"></div></div>
+    <div class="card"><h3>Distribuição por prioridade</h3><div id="chPrio"></div></div>
   </div>
   <div class="cols">
-    <div class="card"><h3>Custo por mês</h3><div id="chMes"></div></div>
     <div class="card"><h3>Custo por tipo de serviço</h3><div id="chTipo"></div></div>
+    <div class="card"><h3>Custo por ambiente <small>(8 maiores)</small></h3><div id="chAmb"></div></div>
   </div>
   <div class="cols">
-    <div class="card"><h3>Custo por ambiente (top 8)</h3><div id="chAmb"></div></div>
-    <div class="card"><h3>OS por prioridade</h3><div id="chPrio"></div></div>
+    <div class="card"><div class="card-head"><div><h3>Fila de prioridade</h3><small class="muted">OS em aberto, por urgência, tempo parado e custo</small></div><button class="btn ghost sm" id="vtPrio"></button></div><div id="rkPrio"></div></div>
+    <div class="card"><div class="card-head"><div><h3>Maiores custos por OS</h3><small class="muted">Valores consolidados do Neovero</small></div><button class="btn ghost sm" id="vtCusto"></button></div><div id="rkCusto"></div></div>
   </div>
 </section>
 
 <!-- HISTÓRICO -->
 <section id="tab-historico" class="tab">
-  <div class="bar"><h2>Histórico de ordens de serviço</h2>
-    <input id="busca" placeholder="Buscar código, local, ocorrência…">
-    <select id="fStatus"><option value="">Todos os status</option><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select>
+  <div class="bar"><div><h2>Histórico de ordens de serviço</h2><span class="muted" id="histResumo"></span></div></div>
+  <div class="filters">
+    <input id="busca" placeholder="Buscar por código, local ou ocorrência…">
+    <select id="fStatus"><option value="">Todos os status</option><option value="abertas">Em aberto</option><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select>
     <select id="fPrio"><option value="">Todas as prioridades</option></select>
-    <select id="fOrdem"><option value="data">Mais recentes</option><option value="custo">Maior custo</option></select>
+    <select id="fOrdem"><option value="data">Mais recentes</option><option value="custo">Maior custo</option><option value="prio">Maior prioridade</option></select>
   </div>
-  <div class="card tbl-wrap"><table id="tbl"><thead><tr><th>Código</th><th>Abertura</th><th>Local</th><th>Ocorrência</th><th>Prioridade</th><th>Status</th><th class="r">Custo</th></tr></thead><tbody></tbody></table></div>
+  <div id="chips" class="chips"></div>
+  <div class="card tbl-wrap"><table id="tbl"><thead><tr><th>Código</th><th>Abertura</th><th>Local</th><th>Ocorrência</th><th>Prioridade</th><th>Status</th><th class="r">Custo (Neovero)</th></tr></thead><tbody></tbody></table></div>
+  <p class="muted note">Custos pendentes aparecem assim que forem lançados no Neovero. Na demonstração, abra a OS e use “Simular lançamento no Neovero”.</p>
 </section>
 </main>
 
+<dialog id="dlgCam"><div class="cam"><video id="video" autoplay playsinline muted></video><p id="camMsg" class="muted"></p>
+  <div class="row"><button class="btn ghost" id="camCancel" type="button">Cancelar</button><label class="btn ghost hidden" id="camFallback">Usar a câmera do aparelho<input type="file" id="camFile" accept="image/*" capture="environment" hidden></label><button class="btn" id="camShot" type="button">Tirar foto</button></div></div></dialog>
+<dialog id="dlgList"><div class="dlg-head"><h3 id="listTitulo"></h3><button class="btn ghost sm" id="listClose">Fechar</button></div><div id="listBody"></div></dialog>
 <dialog id="dlg"><div id="dlgBody"></div><button class="btn ghost" id="dlgClose">Fechar</button></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
 </body>
 </html>

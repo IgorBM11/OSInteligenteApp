@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const store = require('./src/store');
 const nv = require('./src/neovero');
-const { parseOS } = require('./src/parser');
+const { parseOS, vazio } = require('./src/parser');
+const { lerFoto } = require('./src/vision');
 const dash = require('./src/dashboard');
 const { locais, PRIORIDADES, OCORRENCIAS } = require('./src/catalogo');
 
@@ -30,13 +31,28 @@ async function api(req, res, url) {
       ocorrencias: OCORRENCIAS.map((o) => ({ ocorrencia: o.ocorrencia, tipo: o.tipo, causa: o.causa, prioridade: o.prioridade })), proximoCodigo: store.nextCodigo() });
   }
   if (req.method === 'POST' && p === '/api/parse') {
-    const { texto } = await readBody(req);
-    if (!clean(texto)) return send(res, 400, { erro: 'Informe a descrição da ocorrência.' });
-    return send(res, 200, parseOS(clean(texto, 2000)));
+    const { texto, foto } = await readBody(req);
+    const t = clean(texto, 2000);
+    if (!t && !foto) return send(res, 400, { erro: 'Fale, digite ou fotografe a ocorrência.' });
+    const d = t ? parseOS(t) : vazio();
+    let fotoLida = false;
+    if (foto) {
+      try {
+        const v = await lerFoto(foto, t);
+        if (v) {
+          fotoLida = true;
+          for (const k of ['ocorrencia', 'tipo', 'causa', 'prioridade', 'ambiente', 'pavimento', 'detalheLocal', 'descricao']) if (!d[k] && v[k]) d[k] = v[k];
+          if (v.ocorrencia && d._confianca.ocorrencia === 'revisar') d._confianca = { ...d._confianca, ocorrencia: 'ia', prioridade: 'ia', causa: 'ia' };
+          if (v.ambiente && d._confianca.local === 'revisar') d._confianca.local = 'ia';
+        }
+      } catch (e) { console.error('leitura de foto falhou:', e.message); }
+    }
+    d._foto = foto ? (fotoLida ? 'lida' : 'nao_lida') : null;
+    return send(res, 200, d);
   }
   if (req.method === 'POST' && p === '/api/os') {
     const b = await readBody(req);
-    if (!clean(b.descricao) || !clean(b.ambiente) || !clean(b.ocorrencia)) return send(res, 400, { erro: 'Descrição, ambiente e ocorrência são obrigatórios.' });
+    if (!clean(b.ambiente) || !clean(b.ocorrencia)) return send(res, 400, { erro: 'Ambiente e ocorrência são obrigatórios.' });
     if (!PRIORIDADES.includes(b.prioridade)) return send(res, 400, { erro: 'Prioridade inválida.' });
     const codigo = store.nextCodigo();
     let foto = null;
@@ -47,7 +63,7 @@ async function api(req, res, url) {
       fs.writeFileSync(path.join(UPLOADS, foto), Buffer.from(b.foto.split(',')[1], 'base64'));
     }
     const os = { codigo, abertura: new Date().toISOString(), fechamento: null, status: 'Aberta', pavimento: clean(b.pavimento, 60), ambiente: clean(b.ambiente, 80), detalheLocal: clean(b.detalheLocal, 80),
-      tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000),
+      tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000) || (b.foto ? 'Registro por foto.' : clean(b.ocorrencia, 80)),
       canal: ['voz', 'texto', 'foto'].includes(b.canal) ? b.canal : 'texto', registradoPor: clean(b.registradoPor, 60) || 'Operação', foto };
     store.add(os);
     return send(res, 201, os);

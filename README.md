@@ -13,12 +13,12 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 ## O que o MVP faz
 | Tela | O que tem |
 |---|---|
-| **Registrar OS** | Microfone (Web Speech API, pt-BR, Chrome/Edge/Safari) ou digitação → "Decupar" → campos preenchidos (verde = IA, laranja = revisar) → confirmar. Foto opcional anexada. Código gerado `OS-AAAA-NNNNN`. |
-| **Dashboard** | KPIs, **ranking de prioridade** (OS em aberto: prioridade + dias parada + custo), **ranking das OS mais caras**, custo por mês/tipo/ambiente, OS por prioridade. |
+| **Registrar** | Caixa de texto central (estilo chat) com **voz** (microfone) e **foto tirada na hora** (câmera) → "Preencher com a IA" → campos preenchidos (verde = IA, laranja = confira, **vermelho = a IA não soube: preencher**) → confirmar. Aviso rápido (toast) ao registrar. Código gerado `OS-AAAA-NNNNN`. |
+| **Dashboard** | KPIs e gráficos clicáveis (abrem o Histórico já filtrado), **fila de prioridade** (OS em aberto: prioridade + dias parada + custo) e **maiores custos por OS**, ambos compactos com "ver lista completa". |
 | **Histórico** | Todas as OS, com filtros e detalhe de custo (mão de obra + insumos). Mudança de status. |
 
 ### Escolha voz × imagem
-Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). Foto pode ser anexada, mas ainda **não é interpretada**.
+Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto também é aceita (tirada na hora). **Leitura automática da foto** é opcional: defina a variável `ANTHROPIC_API_KEY` (e, se quiser, `ANTHROPIC_MODEL`) e o servidor envia a imagem ao Claude para sugerir ocorrência, local e prioridade (*recurso ainda não testado com chave real*). Sem a chave, a foto é só anexada e os campos ficam em vermelho para preenchimento manual.
 
 ## Simulador do Neovero
 `data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
