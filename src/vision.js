@@ -1,7 +1,6 @@
 'use strict';
-// Interpretação por IA (Claude, API da Anthropic) de TEXTO e/ou FOTO da ocorrência.
-// Só roda se ANTHROPIC_API_KEY estiver definida; sem a chave o app usa apenas as regras de src/parser.js.
-const Anthropic = require('@anthropic-ai/sdk');
+// Interpretação por IA (OpenAI, modelo com visão) de TEXTO e/ou FOTO da ocorrência.
+// Só roda se OPENAI_API_KEY estiver definida; sem a chave o app usa apenas as regras de src/parser.js.
 const { locais, PRIORIDADES, OCORRENCIAS, OCORRENCIA_DO_EQUIPAMENTO } = require('./catalogo');
 
 const PAVIMENTOS = [...new Set(locais.ambientes.map((a) => a.pavimento))].filter((p) => p !== 'Geral');
@@ -44,34 +43,45 @@ somente foto de um ar-condicionado split de parede com água escorrendo, sem pis
 somente foto de um exaustor/ventilador de teto parado -> {"ocorrencia":"Ventilador/exaustor com defeito","equipamento":"Exaustor","pavimento":"","ambiente":"","prioridade":"Média","detalheLocal":"","descricao":"Exaustor de teto aparentemente parado."}`;
 }
 
-const MODELO_PADRAO = 'claude-sonnet-5-5'; // Claude de porte médio; troque com ANTHROPIC_MODEL
-const MODELOS_RESERVA = ['claude-sonnet-5', 'claude-haiku-5-5']; // usados só se o modelo principal não existir para a conta
+const MODELO_PADRAO = 'gpt-4o'; // com visão; troque com OPENAI_MODEL
+const MODELOS_RESERVA = ['gpt-4o-mini', 'gpt-4.1']; // usados só se o modelo principal não existir para a conta
+const BASE = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
 
-let cliente = null;
-// Chave enviada no cabeçalho clássico x-api-key (aceito para chaves sk-ant-...).
-const getCliente = () => (cliente ||= new Anthropic({ apiKey: null, authToken: null, defaultHeaders: { 'x-api-key': process.env.ANTHROPIC_API_KEY } }));
+// Chave da OpenAI. Aceita também ANTHROPIC_API_KEY SE o valor não for de fato uma chave da Anthropic
+// (caso a chave da OpenAI tenha sido cadastrada com esse nome por engano).
+function chave() {
+  const k = process.env.OPENAI_API_KEY;
+  if (k) return k;
+  const legado = process.env.ANTHROPIC_API_KEY;
+  return legado && !legado.startsWith('sk-ant-') ? legado : '';
+}
 
 // Resumo curto e seguro (sem chave) do erro, para mostrar na tela e no log
 function resumoErro(e) {
-  const msg = e?.error?.error?.message || e?.message || String(e);
-  return `${e?.status ? 'HTTP ' + e.status + ': ' : ''}${String(msg).replace(/sk-ant-[\w-]+/g, '***').slice(0, 220)}`;
+  const msg = e?.message || String(e);
+  return `${e?.status ? 'HTTP ' + e.status + ': ' : ''}${String(msg).replace(/sk-[\w-]{8,}/g, '***').slice(0, 220)}`;
+}
+
+async function chamarModelo(params) {
+  const r = await fetch(`${BASE}/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${chave()}`, 'content-type': 'application/json' },
+    body: JSON.stringify(params),
+    signal: AbortSignal.timeout(60000),
+  });
+  const corpo = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(corpo?.error?.message || r.statusText); e.status = r.status; e.codigo = corpo?.error?.code; throw e; }
+  return corpo;
 }
 
 async function chamar(params) {
-  const cli = getCliente();
   const modelos = [params.model, ...MODELOS_RESERVA.filter((m) => m !== params.model)];
   let ultimo;
   for (const model of modelos) {
-    let p = { ...params, model };
-    try {
-      try { return await cli.messages.create(p); }
-      catch (e) { // parâmetro de esforço não aceito: repete sem ele
-        if (e.status === 400 && /output_config|effort/i.test(resumoErro(e))) { delete p.output_config; return await cli.messages.create(p); }
-        throw e;
-      }
-    } catch (e) {
+    try { return await chamarModelo({ ...params, model }); }
+    catch (e) {
       ultimo = e;
-      const modeloInvalido = e.status === 404 || (e.status === 400 && /model/i.test(resumoErro(e)));
+      const modeloInvalido = e.status === 404 || e.codigo === 'model_not_found' || (e.status === 400 && /model/i.test(e.message || ''));
       if (!modeloInvalido) throw e;
       console.error(`modelo ${model} indisponível (${resumoErro(e)}); tentando o próximo`);
     }
@@ -80,24 +90,23 @@ async function chamar(params) {
 }
 
 async function interpretar(texto, foto, equipamentos = []) {
-  if (!process.env.ANTHROPIC_API_KEY) return { motivo: 'sem_chave' };
-  const content = [];
+  if (!chave()) return { motivo: 'sem_chave' };
+  const content = [{ type: 'text', text: montaPrompt(texto, !!foto, equipamentos) }];
   if (foto) {
-    const m = /^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/.exec(foto);
-    if (!m) return { motivo: 'falha' };
-    content.push({ type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } });
+    if (!/^data:image\/(?:png|jpe?g|webp);base64,/.test(foto)) return { motivo: 'falha' };
+    content.push({ type: 'image_url', image_url: { url: foto } });
   }
-  content.push({ type: 'text', text: montaPrompt(texto, !!foto, equipamentos) });
 
   const resp = await chamar({
-    model: process.env.ANTHROPIC_MODEL || MODELO_PADRAO,
-    max_tokens: 8000,
-    output_config: { effort: 'medium' },
+    model: process.env.OPENAI_MODEL || MODELO_PADRAO,
+    max_completion_tokens: 1500,
+    response_format: { type: 'json_object' },
     messages: [{ role: 'user', content }],
   });
-  if (resp.stop_reason === 'refusal') return { motivo: 'falha' };
-  const out = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
-  if (!out.includes('{')) throw new Error(`resposta sem JSON (stop_reason=${resp.stop_reason}): ${out.slice(0, 120)}`);
+  const msg = resp.choices?.[0]?.message;
+  if (msg?.refusal) return { motivo: 'falha' };
+  const out = msg?.content || '';
+  if (!out.includes('{')) throw new Error(`resposta sem JSON (finish_reason=${resp.choices?.[0]?.finish_reason}): ${out.slice(0, 120)}`);
   const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
   const equip = equipamentos.includes(j.equipamento) ? j.equipamento : '';
   let outra = j.ocorrencia === 'Outra ocorrência';

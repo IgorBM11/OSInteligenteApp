@@ -8,7 +8,6 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.10.0",
     "exceljs": "^4.4.0"
   },
   "engines": {

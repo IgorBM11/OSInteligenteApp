@@ -36,7 +36,7 @@ async function api(req, res, url) {
     if (!t && !foto) return send(res, 400, { erro: 'Fale, digite ou fotografe a ocorrência.' });
     const listaEq = (await nv.getEquipamentos()).map((e) => e.nome);
     const d = t ? parseOS(t, listaEq) : vazio();
-    // IA (Claude) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
+    // IA (OpenAI) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
     let status = foto ? 'falha' : null;
     try {
       const v = await interpretar(t, foto, listaEq);
