@@ -109,7 +109,7 @@ async function decupar() {
     $('#f-ocorrencia').value = d.ocorrencia; $('#f-tipo').value = d.tipo; $('#f-causa').value = d.causa; $('#f-prioridade').value = d.prioridade; $('#f-descricao').value = d.descricao;
     const faltam = marcar(d._confianca);
     const msgs = [];
-    if (d._foto === 'sem_chave') msgs.push('📷 Foto anexada, mas a leitura automática está desativada (falta configurar a chave GEMINI_API_KEY no servidor).');
+    if (d._foto === 'sem_chave') msgs.push('📷 Foto anexada, mas a leitura automática está desativada (falta configurar a chave ANTHROPIC_API_KEY no servidor).');
     if (d._foto === 'falha') msgs.push('📷 Foto anexada, mas não consegui lê-la agora. Preencha os campos manualmente.');
     if (d._foto === 'lida') msgs.push('📷 Foto lida pela IA. Confira os campos sugeridos.');
     if (faltam.length) msgs.push(`A IA não conseguiu identificar: <b>${faltam.join(', ')}</b>. Preencha os campos em vermelho.`);

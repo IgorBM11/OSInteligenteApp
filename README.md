@@ -18,7 +18,7 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 | **Histórico** | Todas as OS, com filtros e detalhe de custo (mão de obra + insumos). Mudança de status. |
 
 ### Escolha voz × imagem
-Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** usa o Google Gemini (há plano gratuito): defina `GEMINI_API_KEY` (chave gratuita em aistudio.google.com; opcional `GEMINI_MODEL`, padrão `gemini-2.5-flash`) e o servidor envia a imagem para sugerir ocorrência, local e prioridade (*ainda não testado com chave real*). Sem a chave, a foto é só anexada e os campos ficam em vermelho.
+Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** de texto e foto usa o Claude (API da Anthropic, SDK oficial): defina `ANTHROPIC_API_KEY` (e, opcionalmente, `ANTHROPIC_MODEL`; padrão `claude-sonnet-5-5`, modelo de porte médio). O servidor envia o relato/imagem para sugerir ocorrência, local e prioridade (*ainda não testado com chave real*). Sem a chave, valem só as regras e a foto fica apenas anexada, com os campos em vermelho.
 
 ## Simulador do Neovero
 `data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
@@ -30,7 +30,7 @@ no detalhe da OS o botão **Simular lançamento no Neovero** grava custos plaus�
 
 ## Pendências conhecidas
 - **Locais são placeholders**: não foi possível ler a tela de Pavimentos/Ambientes da Opy (exige Claude in Chrome e login). Substituir `data/locais.json` pelo cadastro real.
-- Decupagem: regras com palavra inteira (sempre ativas) + raciocínio do Gemini sobre texto e foto quando `GEMINI_API_KEY` existe (a IA tem prioridade e as regras preenchem o que faltar); sem autenticação/perfis; persistência em JSON; dados e custos fictícios.
+- Decupagem: regras com palavra inteira (sempre ativas) + raciocínio do Claude sobre texto e foto quando `ANTHROPIC_API_KEY` existe (a IA tem prioridade e as regras preenchem o que faltar); sem autenticação/perfis; persistência em JSON; dados e custos fictícios.
 
 ## Publicar (Render, plano gratuito)
 1. Crie conta em render.com e conecte o GitHub.

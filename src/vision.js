@@ -1,6 +1,7 @@
 'use strict';
-// Interpretação por IA (Google Gemini; há plano gratuito) de TEXTO e/ou FOTO da ocorrência.
-// Só roda se GEMINI_API_KEY estiver definida; sem a chave o app usa apenas as regras de src/parser.js.
+// Interpretação por IA (Claude, API da Anthropic) de TEXTO e/ou FOTO da ocorrência.
+// Só roda se ANTHROPIC_API_KEY estiver definida; sem a chave o app usa apenas as regras de src/parser.js.
+const Anthropic = require('@anthropic-ai/sdk');
 const { locais, PRIORIDADES, OCORRENCIAS } = require('./catalogo');
 
 const PAVIMENTOS = [...new Set(locais.ambientes.map((a) => a.pavimento))].filter((p) => p !== 'Geral');
@@ -29,24 +30,29 @@ Exemplos:
 "cadeira de rodas com roda solta na recepção" -> {"ocorrencia":"Mobiliário/equipamento danificado","pavimento":"Térreo","ambiente":"Recepção / Acolhimento","prioridade":"Baixa","detalheLocal":"","descricao":"Cadeira de rodas com roda solta."}`;
 }
 
+const MODELO_PADRAO = 'claude-sonnet-5-5'; // Claude de porte médio; troque com ANTHROPIC_MODEL
+
+let cliente = null;
+const getCliente = () => (cliente ||= new Anthropic()); // lê ANTHROPIC_API_KEY (e ANTHROPIC_BASE_URL, se houver)
+
 async function interpretar(texto, foto) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return { motivo: 'sem_chave' };
-  const parts = [];
+  if (!process.env.ANTHROPIC_API_KEY) return { motivo: 'sem_chave' };
+  const content = [];
   if (foto) {
     const m = /^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/.exec(foto);
     if (!m) return { motivo: 'falha' };
-    parts.push({ inline_data: { mime_type: m[1], data: m[2] } });
+    content.push({ type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } });
   }
-  parts.push({ text: montaPrompt(texto, !!foto) });
-  const modelo = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelo)}:generateContent`, {
-    method: 'POST',
-    headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.1 } }),
+  content.push({ type: 'text', text: montaPrompt(texto, !!foto) });
+
+  const resp = await getCliente().messages.create({
+    model: process.env.ANTHROPIC_MODEL || MODELO_PADRAO,
+    max_tokens: 4000,
+    output_config: { effort: 'medium' },
+    messages: [{ role: 'user', content }],
   });
-  if (!r.ok) throw new Error('Gemini: HTTP ' + r.status + ' ' + (await r.text()).slice(0, 200));
-  const out = (await r.json()).candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+  if (resp.stop_reason === 'refusal') return { motivo: 'falha' };
+  const out = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
   const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
   const outra = j.ocorrencia === 'Outra ocorrência';
   const oc = OCORRENCIAS.find((o) => o.ocorrencia === j.ocorrencia);

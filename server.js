@@ -35,7 +35,7 @@ async function api(req, res, url) {
     const t = clean(texto, 2000);
     if (!t && !foto) return send(res, 400, { erro: 'Fale, digite ou fotografe a ocorrência.' });
     const d = t ? parseOS(t) : vazio();
-    // IA (Gemini) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
+    // IA (Claude) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
     let status = foto ? 'falha' : null;
     try {
       const v = await interpretar(t, foto);
