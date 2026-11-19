@@ -26,6 +26,7 @@ function abrirAba(nome) {
   if (nome !== 'registrar') loadDash();
 }
 document.querySelectorAll('nav button').forEach((b) => b.onclick = () => { if (b.dataset.tab === 'historico') hf = {}; abrirAba(b.dataset.tab); });
+$('#home').onclick = (e) => { e.preventDefault(); abrirAba('registrar'); };
 function irHistorico(filtros) { hf = { ...filtros }; abrirAba('historico'); }
 
 // ---------- Registro ----------
