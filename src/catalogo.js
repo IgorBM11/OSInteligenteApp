@@ -108,4 +108,15 @@ const EQUIP_POR_OCORRENCIA = {
   'Vazamento de água': ['Bebedouro', 'Bomba d\'água', null, null],
 };
 
-module.exports = { locais, PRIORIDADES, VALOR_HORA, OCORRENCIAS, GENERICA, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA };
+// Ocorrência mais provável quando só se conhece o equipamento (foto sem relato). Equipamentos sem
+// entrada aqui (ex.: raio-x, autoclave) caem em "Outra ocorrência" para o operador confirmar.
+const OCORRENCIA_DO_EQUIPAMENTO = {
+  'Ar-condicionado split': 'Ar-condicionado sem refrigerar', 'Ar-condicionado central (fan coil)': 'Ar-condicionado sem refrigerar',
+  'Ventilador': 'Ventilador/exaustor com defeito', 'Exaustor': 'Ventilador/exaustor com defeito',
+  'Luminária': 'Lâmpada queimada / iluminação', 'Régua de gás medicinal': 'Falha em gás medicinal', 'Elevador': 'Elevador parado/com falha',
+  'Porta automática': 'Porta/fechadura com defeito', 'Quadro elétrico': 'Tomada/disjuntor sem energia', 'Nobreak': 'Tomada/disjuntor sem energia', 'Gerador': 'Tomada/disjuntor sem energia',
+  'Bomba d\'água': 'Vazamento de água', 'Cama hospitalar': 'Mobiliário/equipamento danificado', 'Maca': 'Mobiliário/equipamento danificado',
+  'Cadeira de rodas': 'Mobiliário/equipamento danificado', 'Bebedouro': 'Mobiliário/equipamento danificado',
+};
+
+module.exports = { locais, PRIORIDADES, VALOR_HORA, OCORRENCIAS, GENERICA, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA, OCORRENCIA_DO_EQUIPAMENTO };
