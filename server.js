@@ -5,7 +5,7 @@ const path = require('path');
 const store = require('./src/store');
 const nv = require('./src/neovero');
 const { parseOS, vazio } = require('./src/parser');
-const { interpretar } = require('./src/vision');
+const { interpretar, resumoErro } = require('./src/vision');
 const dash = require('./src/dashboard');
 const { locais, PRIORIDADES, OCORRENCIAS } = require('./src/catalogo');
 
@@ -51,7 +51,7 @@ async function api(req, res, url) {
         if (v.ambiente) c.local = 'ia';
         if (v.equipamento) c.equipamento = 'ia';
       }
-    } catch (e) { console.error('interpretação por IA falhou:', e.message); }
+    } catch (e) { d._erro = resumoErro(e); console.error('interpretação por IA falhou:', d._erro); }
     d._foto = status;
     return send(res, 200, d);
   }

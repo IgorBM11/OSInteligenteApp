@@ -45,9 +45,39 @@ somente foto de um exaustor/ventilador de teto parado -> {"ocorrencia":"Ventilad
 }
 
 const MODELO_PADRAO = 'claude-sonnet-5-5'; // Claude de porte médio; troque com ANTHROPIC_MODEL
+const MODELOS_RESERVA = ['claude-sonnet-5', 'claude-haiku-5-5']; // usados só se o modelo principal não existir para a conta
 
 let cliente = null;
-const getCliente = () => (cliente ||= new Anthropic()); // lê ANTHROPIC_API_KEY (e ANTHROPIC_BASE_URL, se houver)
+// Chave enviada no cabeçalho clássico x-api-key (aceito para chaves sk-ant-...).
+const getCliente = () => (cliente ||= new Anthropic({ apiKey: null, authToken: null, defaultHeaders: { 'x-api-key': process.env.ANTHROPIC_API_KEY } }));
+
+// Resumo curto e seguro (sem chave) do erro, para mostrar na tela e no log
+function resumoErro(e) {
+  const msg = e?.error?.error?.message || e?.message || String(e);
+  return `${e?.status ? 'HTTP ' + e.status + ': ' : ''}${String(msg).replace(/sk-ant-[\w-]+/g, '***').slice(0, 220)}`;
+}
+
+async function chamar(params) {
+  const cli = getCliente();
+  const modelos = [params.model, ...MODELOS_RESERVA.filter((m) => m !== params.model)];
+  let ultimo;
+  for (const model of modelos) {
+    let p = { ...params, model };
+    try {
+      try { return await cli.messages.create(p); }
+      catch (e) { // parâmetro de esforço não aceito: repete sem ele
+        if (e.status === 400 && /output_config|effort/i.test(resumoErro(e))) { delete p.output_config; return await cli.messages.create(p); }
+        throw e;
+      }
+    } catch (e) {
+      ultimo = e;
+      const modeloInvalido = e.status === 404 || (e.status === 400 && /model/i.test(resumoErro(e)));
+      if (!modeloInvalido) throw e;
+      console.error(`modelo ${model} indisponível (${resumoErro(e)}); tentando o próximo`);
+    }
+  }
+  throw ultimo;
+}
 
 async function interpretar(texto, foto, equipamentos = []) {
   if (!process.env.ANTHROPIC_API_KEY) return { motivo: 'sem_chave' };
@@ -59,14 +89,15 @@ async function interpretar(texto, foto, equipamentos = []) {
   }
   content.push({ type: 'text', text: montaPrompt(texto, !!foto, equipamentos) });
 
-  const resp = await getCliente().messages.create({
+  const resp = await chamar({
     model: process.env.ANTHROPIC_MODEL || MODELO_PADRAO,
-    max_tokens: 4000,
+    max_tokens: 8000,
     output_config: { effort: 'medium' },
     messages: [{ role: 'user', content }],
   });
   if (resp.stop_reason === 'refusal') return { motivo: 'falha' };
   const out = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+  if (!out.includes('{')) throw new Error(`resposta sem JSON (stop_reason=${resp.stop_reason}): ${out.slice(0, 120)}`);
   const j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1));
   const equip = equipamentos.includes(j.equipamento) ? j.equipamento : '';
   let outra = j.ocorrencia === 'Outra ocorrência';
@@ -86,4 +117,4 @@ async function interpretar(texto, foto, equipamentos = []) {
     detalheLocal: String(j.detalheLocal || '').slice(0, 80), descricao: String(j.descricao || '').slice(0, 300),
   };
 }
-module.exports = { interpretar };
+module.exports = { interpretar, resumoErro };

@@ -112,6 +112,7 @@ async function decupar() {
     const msgs = [];
     if (d._foto === 'sem_chave') msgs.push('📷 Foto anexada, mas a leitura automática está desativada (falta configurar a chave ANTHROPIC_API_KEY no servidor).');
     if (d._foto === 'falha') msgs.push('📷 Foto anexada, mas não consegui lê-la agora. Preencha os campos manualmente.');
+    if (d._erro) msgs.push(`⚠️ Motivo técnico da falha da IA: <i>${esc(d._erro)}</i>`);
     if (d._foto === 'lida') msgs.push('📷 Foto lida pela IA. Confira os campos sugeridos.');
     if (faltam.length) msgs.push(`A IA não conseguiu identificar: <b>${faltam.join(', ')}</b>. Preencha os campos em vermelho.`);
     $('#aviso').innerHTML = msgs.join('<br>'); $('#aviso').classList.toggle('hidden', !msgs.length);
