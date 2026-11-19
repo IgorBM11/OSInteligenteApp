@@ -18,7 +18,7 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 | **Histórico** | Todas as OS, com filtros e detalhe de custo (mão de obra + insumos). Mudança de status. |
 
 ### Escolha voz × imagem
-Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** de texto e foto usa a OpenAI (modelo com visão): defina `OPENAI_API_KEY` (e, opcionalmente, `OPENAI_MODEL`; padrão `gpt-4o`, com `gpt-4o-mini` e `gpt-4.1` de reserva se o modelo não existir para a conta). O servidor envia o relato/imagem para sugerir ocorrência, equipamento, local e prioridade (*ainda não testado com chave real*). Sem a chave, valem só as regras e a foto fica apenas anexada, com os campos em vermelho. Se a IA falhar, o motivo técnico aparece no aviso do formulário.
+Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** de texto e foto usa a OpenAI (modelo com visão): defina `OPENAI_API_KEY` (e, opcionalmente, `OPENAI_MODEL`; padrão `gpt-6.2-sol`, com `gpt-4o` e `gpt-4o-mini` de reserva se o modelo não existir para a conta). O servidor envia o relato/imagem para sugerir ocorrência, equipamento, local e prioridade (*ainda não testado com chave real*). Sem a chave, valem só as regras e a foto fica apenas anexada, com os campos em vermelho. Se a IA falhar, o motivo técnico aparece no aviso do formulário.
 
 ## Simulador do Neovero
 `data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **Equipamentos**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).

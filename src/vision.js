@@ -43,8 +43,8 @@ somente foto de um ar-condicionado split de parede com água escorrendo, sem pis
 somente foto de um exaustor/ventilador de teto parado -> {"ocorrencia":"Ventilador/exaustor com defeito","equipamento":"Exaustor","pavimento":"","ambiente":"","prioridade":"Média","detalheLocal":"","descricao":"Exaustor de teto aparentemente parado."}`;
 }
 
-const MODELO_PADRAO = 'gpt-4o'; // com visão; troque com OPENAI_MODEL
-const MODELOS_RESERVA = ['gpt-4o-mini', 'gpt-4.1']; // usados só se o modelo principal não existir para a conta
+const MODELO_PADRAO = 'gpt-6.2-sol'; // com visão; troque com OPENAI_MODEL
+const MODELOS_RESERVA = ['gpt-4o', 'gpt-4o-mini']; // usados só se o modelo principal não existir para a conta
 const BASE = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
 
 // Chave da OpenAI. Aceita também ANTHROPIC_API_KEY SE o valor não for de fato uma chave da Anthropic
