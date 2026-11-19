@@ -59,4 +59,53 @@ const OCORRENCIAS = [
 
 const GENERICA = { ocorrencia: 'Outra ocorrência', tipo: 'Predial · geral', causa: 'A diagnosticar', prioridade: 'Média', esp: 'Civil', horas: [1, 4], palavras: [], insumos: [['Material diverso', 'un', 40, 1, 3]] };
 
-module.exports = { locais, PRIORIDADES, VALOR_HORA, OCORRENCIAS, GENERICA };
+// Equipamentos existentes no hospital (FICTÍCIO). A fonte em execução é a aba "Equipamentos"
+// do Neovero simulado (data/neovero_simulador.xlsx); esta lista só alimenta o seed e os apelidos
+// usados pelas regras de decupagem.
+const EQUIPAMENTOS = [
+  { nome: 'Ar-condicionado split', categoria: 'Climatização', aliases: ['ar condicionado', 'ar-condicionado', 'split', 'condensadora', 'evaporadora'] },
+  { nome: 'Ar-condicionado central (fan coil)', categoria: 'Climatização', aliases: ['fan coil', 'fancoil', 'chiller', 'ar condicionado central', 'ar-condicionado central'] },
+  { nome: 'Ventilador', categoria: 'Climatização', aliases: ['ventilador', 'ventoinha', 'circulador de ar'] },
+  { nome: 'Exaustor', categoria: 'Climatização', aliases: ['exaustor', 'coifa'] },
+  { nome: 'Aparelho de raio-x', categoria: 'Diagnóstico por imagem', aliases: ['raio x', 'raio-x', 'rx'] },
+  { nome: 'Tomógrafo', categoria: 'Diagnóstico por imagem', aliases: ['tomografo', 'tomografia'] },
+  { nome: 'Ressonância magnética', categoria: 'Diagnóstico por imagem', aliases: ['ressonancia'] },
+  { nome: 'Ultrassom', categoria: 'Diagnóstico por imagem', aliases: ['ultrassom', 'ultrassonografo'] },
+  { nome: 'Autoclave', categoria: 'Esterilização', aliases: ['autoclave', 'esterilizadora'] },
+  { nome: 'Lavadora termodesinfectora', categoria: 'Esterilização', aliases: ['termodesinfectora'] },
+  { nome: 'Monitor multiparamétrico', categoria: 'Equipamento assistencial', aliases: ['monitor multiparametrico', 'monitor cardiaco', 'monitor de sinais'] },
+  { nome: 'Ventilador pulmonar', categoria: 'Equipamento assistencial', aliases: ['ventilador pulmonar', 'respirador', 'ventilador mecanico'] },
+  { nome: 'Bomba de infusão', categoria: 'Equipamento assistencial', aliases: ['bomba de infusao', 'bomba infusora'] },
+  { nome: 'Desfibrilador', categoria: 'Equipamento assistencial', aliases: ['desfibrilador'] },
+  { nome: 'Foco cirúrgico', categoria: 'Centro cirúrgico', aliases: ['foco cirurgico', 'foco de luz'] },
+  { nome: 'Mesa cirúrgica', categoria: 'Centro cirúrgico', aliases: ['mesa cirurgica', 'mesa de cirurgia'] },
+  { nome: 'Cama hospitalar', categoria: 'Mobiliário', aliases: ['cama hospitalar', 'cama'] },
+  { nome: 'Maca', categoria: 'Mobiliário', aliases: ['maca'] },
+  { nome: 'Cadeira de rodas', categoria: 'Mobiliário', aliases: ['cadeira de rodas'] },
+  { nome: 'Elevador', categoria: 'Utilidades', aliases: ['elevador'] },
+  { nome: 'Gerador', categoria: 'Utilidades', aliases: ['gerador'] },
+  { nome: 'Nobreak', categoria: 'Elétrica', aliases: ['nobreak', 'no-break'] },
+  { nome: 'Quadro elétrico', categoria: 'Elétrica', aliases: ['quadro eletrico', 'quadro de energia', 'disjuntor geral'] },
+  { nome: 'Luminária', categoria: 'Elétrica', aliases: ['luminaria', 'lampada', 'painel de led'] },
+  { nome: 'Régua de gás medicinal', categoria: 'Gases medicinais', aliases: ['regua de gas', 'ponto de gas', 'ponto de oxigenio', 'fluxometro'] },
+  { nome: 'Bebedouro', categoria: 'Hidráulica', aliases: ['bebedouro'] },
+  { nome: 'Bomba d\'água', categoria: 'Hidráulica', aliases: ['bomba d agua', 'bomba dagua', 'bomba de agua', 'motobomba'] },
+  { nome: 'Geladeira / refrigerador', categoria: 'Utilidades', aliases: ['geladeira', 'refrigerador', 'freezer', 'camara fria'] },
+  { nome: 'Lavadora de roupas', categoria: 'Lavanderia', aliases: ['lavadora', 'maquina de lavar', 'secadora', 'calandra'] },
+  { nome: 'Porta automática', categoria: 'Predial', aliases: ['porta automatica', 'porta de correr automatica'] },
+];
+
+// equipamentos mais prováveis por ocorrência (usado só para gerar o histórico fictício)
+const EQUIP_POR_OCORRENCIA = {
+  'Ar-condicionado sem refrigerar': ['Ar-condicionado split', 'Ar-condicionado split', 'Ar-condicionado central (fan coil)'],
+  'Ventilador/exaustor com defeito': ['Ventilador', 'Exaustor'],
+  'Lâmpada queimada / iluminação': ['Luminária'],
+  'Tomada/disjuntor sem energia': ['Quadro elétrico', 'Nobreak', 'Aparelho de raio-x', 'Autoclave', null],
+  'Falha em gás medicinal': ['Régua de gás medicinal'],
+  'Elevador parado/com falha': ['Elevador'],
+  'Porta/fechadura com defeito': ['Porta automática', null],
+  'Mobiliário/equipamento danificado': ['Cama hospitalar', 'Maca', 'Cadeira de rodas', 'Bebedouro'],
+  'Vazamento de água': ['Bebedouro', 'Bomba d\'água', null, null],
+};
+
+module.exports = { locais, PRIORIDADES, VALOR_HORA, OCORRENCIAS, GENERICA, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA };

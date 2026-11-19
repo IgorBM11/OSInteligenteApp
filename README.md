@@ -21,8 +21,8 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** de texto e foto usa o Claude (API da Anthropic, SDK oficial): defina `ANTHROPIC_API_KEY` (e, opcionalmente, `ANTHROPIC_MODEL`; padrão `claude-sonnet-5-5`, modelo de porte médio). O servidor envia o relato/imagem para sugerir ocorrência, local e prioridade (*ainda não testado com chave real*). Sem a chave, valem só as regras e a foto fica apenas anexada, com os campos em vermelho.
 
 ## Simulador do Neovero
-`data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
-O app lê essa planilha a cada mudança (editar o Excel reflete no dashboard). OS sem linhas aparecem como "aguardando custo";
+`data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **Equipamentos**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
+A aba **Equipamentos** (codigo_equipamento, equipamento, categoria) é a lista de equipamentos do hospital: alimenta o dropdown do formulário e a identificação pela IA. Para incluir um equipamento, adicione uma linha nessa aba. O app lê essa planilha a cada mudança (editar o Excel reflete no dashboard). OS sem linhas aparecem como "aguardando custo";
 no detalhe da OS o botão **Simular lançamento no Neovero** grava custos plausíveis na planilha. A integração real troca apenas `src/neovero.js` (`getCustos`, `getTodos`).
 
 ## Estrutura

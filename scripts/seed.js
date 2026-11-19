@@ -2,7 +2,7 @@
 // Gera histórico fictício: data/os.json (app) + data/neovero_simulador.xlsx (base de custos simulada).
 const store = require('../src/store');
 const nv = require('../src/neovero');
-const { locais, OCORRENCIAS } = require('../src/catalogo');
+const { locais, OCORRENCIAS, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA } = require('../src/catalogo');
 
 let seed = 20261119;
 const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
@@ -29,10 +29,12 @@ for (let i = 0; i < N; i++) {
   const r = rnd();
   const status = diasAtras < 2 && r < 0.6 ? 'Aberta' : diasAtras < 12 && r < 0.45 ? 'Em andamento' : diasAtras > 40 && r < 0.04 ? 'Em andamento' : 'Concluída';
   const detalhe = pick(DETALHES);
+  const eqs = EQUIP_POR_OCORRENCIA[o.ocorrencia];
+  const equipamento = eqs ? (pick(eqs) || '') : '';
   const codigo = `OS-${abertura.getFullYear()}-${String(1001 + i).padStart(5, '0')}`;
   const fechamento = status === 'Concluída' ? new Date(abertura.getTime() + (0.3 + rnd() * 5) * 86400000).toISOString() : null;
   const os = { codigo, abertura: abertura.toISOString(), fechamento, status, pavimento: pav, ambiente: amb.nome, detalheLocal: detalhe,
-    tipo: o.tipo, ocorrencia: o.ocorrencia, causa: o.causa, prioridade,
+    tipo: o.tipo, ocorrencia: o.ocorrencia, equipamento, causa: o.causa, prioridade,
     descricao: `${o.ocorrencia} - ${amb.nome}${detalhe ? ', ' + detalhe : ''}.`, canal: pick(['voz', 'voz', 'texto', 'foto']), registradoPor: pick(REGISTRADORES) };
   lista.push(os);
 }
@@ -50,4 +52,5 @@ for (const os of lista) {
 }
 
 store.replaceAll(lista);
-nv.writeWorkbook(osNv, { mo, ins }).then(() => console.log(`OK: ${lista.length} OS, ${osNv.length} com custos no Neovero simulado.`));
+const eqRows = EQUIPAMENTOS.map((e, i) => ({ codigo_equipamento: 'EQ-' + String(i + 1).padStart(3, '0'), equipamento: e.nome, categoria: e.categoria }));
+nv.writeWorkbook(osNv, { mo, ins }, eqRows).then(() => console.log(`OK: ${lista.length} OS, ${osNv.length} com custos no Neovero simulado.`));

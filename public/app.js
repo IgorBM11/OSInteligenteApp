@@ -36,13 +36,14 @@ async function init() {
   $('#hospital').textContent = cfg.hospital;
   fill($('#f-pavimento'), ['', ...cfg.pavimentos.filter((p) => p !== 'Geral')]);
   fill($('#f-ambiente'), ['', ...cfg.ambientes.map((a) => a.nome)]);
+  fill($('#f-equipamento'), ['', ...cfg.equipamentos.map((e) => e.nome)], 'Nenhum / não se aplica');
   fill($('#f-ocorrencia'), ['', ...cfg.ocorrencias.map((o) => o.ocorrencia), 'Outra ocorrência']);
   fill($('#f-prioridade'), ['', ...cfg.prioridades]);
   $('#fPrio').insertAdjacentHTML('beforeend', cfg.prioridades.map((x) => `<option>${x}</option>`).join(''));
 }
 
 // destaque dos campos: verde = IA, laranja = confira, vermelho = preencher
-const CAMPOS = [['f-pavimento', 'local', 1], ['f-ambiente', 'local', 1], ['f-detalhe', 'local', 0], ['f-ocorrencia', 'ocorrencia', 1], ['f-tipo', 'ocorrencia', 0], ['f-causa', 'causa', 0], ['f-prioridade', 'prioridade', 1], ['f-descricao', null, 0]];
+const CAMPOS = [['f-pavimento', 'local', 1], ['f-ambiente', 'local', 1], ['f-detalhe', 'local', 0], ['f-equipamento', 'equipamento', 0], ['f-ocorrencia', 'ocorrencia', 1], ['f-tipo', 'ocorrencia', 0], ['f-causa', 'causa', 0], ['f-prioridade', 'prioridade', 1], ['f-descricao', null, 0]];
 const setS = (id, s) => { const l = document.querySelector(`label[data-f=${id}]`); if (s) l.dataset.s = s; else delete l.dataset.s; };
 function marcar(conf) {
   const faltam = [];
@@ -105,7 +106,7 @@ async function decupar() {
   const btn = $('#btnDecupar span'); btn.textContent = 'Preenchendo…';
   try {
     const d = await post('/api/parse', { texto, foto });
-    $('#f-pavimento').value = d.pavimento; $('#f-ambiente').value = d.ambiente; $('#f-detalhe').value = d.detalheLocal;
+    $('#f-pavimento').value = d.pavimento; $('#f-ambiente').value = d.ambiente; $('#f-detalhe').value = d.detalheLocal; $('#f-equipamento').value = d.equipamento || '';
     $('#f-ocorrencia').value = d.ocorrencia; $('#f-tipo').value = d.tipo; $('#f-causa').value = d.causa; $('#f-prioridade').value = d.prioridade; $('#f-descricao').value = d.descricao;
     const faltam = marcar(d._confianca);
     const msgs = [];
@@ -125,7 +126,7 @@ $('#form').onsubmit = async (e) => {
   const faltam = CAMPOS.filter(([id, , req]) => req && !$('#' + id).value);
   if (faltam.length) { faltam.forEach(([id]) => setS(id, 'vazio')); $('#' + faltam[0][0]).focus(); toast('Preencha os campos destacados em vermelho.'); return; }
   try {
-    const os = await post('/api/os', { pavimento: $('#f-pavimento').value, ambiente: $('#f-ambiente').value, detalheLocal: $('#f-detalhe').value, ocorrencia: $('#f-ocorrencia').value, tipo: $('#f-tipo').value, causa: $('#f-causa').value, prioridade: $('#f-prioridade').value, descricao: $('#f-descricao').value, canal, foto });
+    const os = await post('/api/os', { pavimento: $('#f-pavimento').value, ambiente: $('#f-ambiente').value, detalheLocal: $('#f-detalhe').value, equipamento: $('#f-equipamento').value, ocorrencia: $('#f-ocorrencia').value, tipo: $('#f-tipo').value, causa: $('#f-causa').value, prioridade: $('#f-prioridade').value, descricao: $('#f-descricao').value, canal, foto });
     toast(`✅ <span><b>${os.codigo}</b> registrada</span> <a id="tVer">Ver no histórico</a>`);
     $('#tVer').onclick = () => irHistorico({ q: os.codigo });
     $('#form').classList.add('hidden'); $('#texto').value = ''; foto = null; $('#fotoChip').classList.add('hidden'); canal = 'texto'; window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -191,14 +192,14 @@ function renderHist() {
   const q = (hf.q || '').toLowerCase();
   let l = dashData.historico.filter((o) => (!hf.status || (hf.status === 'abertas' ? o.status !== 'Concluída' : o.status === hf.status)) && (!hf.prio || o.prioridade === hf.prio) && (!hf.altaCrit || PESO[o.prioridade] >= 2)
     && (!hf.tipo || o.tipo === hf.tipo) && (!hf.ambiente || o.ambiente === hf.ambiente) && (!hf.mes || o.abertura.startsWith(hf.mes)) && (!hf.custo || (hf.custo === 'sem' ? o.custo == null : o.custo != null))
-    && (!q || (o.codigo + ' ' + o.ocorrencia + ' ' + o.ambiente + ' ' + o.pavimento + ' ' + o.tipo + ' ' + o.detalheLocal).toLowerCase().includes(q)));
+    && (!q || (o.codigo + ' ' + o.ocorrencia + ' ' + o.ambiente + ' ' + o.pavimento + ' ' + o.tipo + ' ' + o.detalheLocal + ' ' + (o.equipamento || '')).toLowerCase().includes(q)));
   if (hf.ordem === 'custo') l = [...l].sort((a, b) => (b.custo ?? -1) - (a.custo ?? -1));
   else if (hf.ordem === 'prio') l = [...l].sort((a, b) => PESO[b.prioridade] - PESO[a.prioridade] || b.abertura.localeCompare(a.abertura));
   $('#chips').innerHTML = Object.keys(ROT).filter((k) => hf[k]).map((k) => `<span class="chip">${esc(ROT[k](hf[k]))}<button data-x="${k}" aria-label="Remover filtro">×</button></span>`).join('');
   $('#chips').querySelectorAll('[data-x]').forEach((b) => b.onclick = () => { delete hf[b.dataset.x]; renderHist(); });
   const soma = l.reduce((s, o) => s + (o.custo || 0), 0);
   $('#histResumo').textContent = `${l.length} OS · custo somado ${R$(soma)}`;
-  $('#tbl tbody').innerHTML = l.map((o) => `<tr data-os="${o.codigo}"><td><b>${o.codigo}</b></td><td>${dt(o.abertura)}</td><td>${local(o)}</td><td>${esc(o.ocorrencia)}<br><small class="muted">${esc(o.tipo)}</small></td><td>${badge(o.prioridade)}</td><td class="st st-${o.status.replace(' ', '')}">${o.status}</td><td class="r">${o.custo == null ? '<span class="muted">pendente</span>' : R$(o.custo)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhuma OS encontrada com esses filtros.</td></tr>';
+  $('#tbl tbody').innerHTML = l.map((o) => `<tr data-os="${o.codigo}"><td><b>${o.codigo}</b></td><td>${dt(o.abertura)}</td><td>${local(o)}</td><td>${esc(o.ocorrencia)}<br><small class="muted">${esc(o.tipo)}${o.equipamento ? ' · ' + esc(o.equipamento) : ''}</small></td><td>${badge(o.prioridade)}</td><td class="st st-${o.status.replace(' ', '')}">${o.status}</td><td class="r">${o.custo == null ? '<span class="muted">pendente</span>' : R$(o.custo)}</td></tr>`).join('') || '<tr><td colspan="7" class="muted">Nenhuma OS encontrada com esses filtros.</td></tr>';
 }
 $('#busca').oninput = () => { hf.q = $('#busca').value; renderHist(); $('#busca').focus(); };
 $('#fStatus').onchange = () => { hf.status = $('#fStatus').value; renderHist(); };
@@ -210,7 +211,7 @@ async function abrirOS(codigo) {
   const o = await j('/api/os/' + codigo), c = o.custoDet;
   const tb = (rows, h) => `<table><tr>${h.map((x) => `<th>${x}</th>`).join('')}</tr>${rows}</table>`;
   $('#dlgBody').innerHTML = `<h3>${o.codigo} ${badge(o.prioridade)} <span class="st st-${o.status.replace(' ', '')}" style="font-size:14px">${o.status}</span></h3><p class="muted">${local(o)} · aberta em ${dt(o.abertura)}</p>
-    <p><b>${esc(o.ocorrencia)}</b> (${esc(o.tipo)})<br>Causa provável: ${esc(o.causa)}<br><i>${esc(o.descricao)}</i></p>${o.foto ? `<img src="/uploads/${o.foto}" alt="Foto da OS" style="max-width:100%;border-radius:12px">` : ''}
+    <p><b>${esc(o.ocorrencia)}</b> (${esc(o.tipo)})${o.equipamento ? `<br>Equipamento: <b>${esc(o.equipamento)}</b>` : ''}<br>Causa provável: ${esc(o.causa)}<br><i>${esc(o.descricao)}</i></p>${o.foto ? `<img src="/uploads/${o.foto}" alt="Foto da OS" style="max-width:100%;border-radius:12px">` : ''}
     ${c ? `<h4>Custos (Neovero)</h4>${tb(c.maoDeObra.map((m) => `<tr><td>${esc(m.tecnico)}</td><td>${m.horas} h × ${R$(m.valorHora)}</td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Mão de obra', 'Horas', 'Total'])}
       ${tb(c.insumos.map((m) => `<tr><td>${esc(m.item)}</td><td>${m.qtd} ${esc(m.unidade)} × ${R$(m.valorUnit)}</td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Insumos', 'Qtd', 'Total'])}
       <p class="tot">Total: ${R$(c.total)}</p>` : `<div class="warn">Custo pendente: ainda não há lançamento desta OS no Neovero.<br><br><button class="btn" id="simNv">Simular lançamento no Neovero</button> <small class="muted">(demonstração)</small></div>`}

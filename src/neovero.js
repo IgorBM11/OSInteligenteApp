@@ -5,31 +5,41 @@
 const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
-const { VALOR_HORA, OCORRENCIAS, GENERICA } = require('./catalogo');
+const { VALOR_HORA, OCORRENCIAS, GENERICA, EQUIPAMENTOS } = require('./catalogo');
 
 const FILE = path.join(__dirname, '..', 'data', 'neovero_simulador.xlsx');
-let cache = { mtime: 0, map: new Map() };
+let cache = { mtime: 0, map: new Map(), equipamentos: [] };
 let chain = Promise.resolve();
 
 const round = (n) => Math.round(n * 100) / 100;
 
 async function load() {
   if (!fs.existsSync(FILE)) return new Map();
+  return (await loadAll()).map;
+}
+async function loadAll() {
+  if (!fs.existsSync(FILE)) return { map: new Map(), equipamentos: [] };
   const mtime = fs.statSync(FILE).mtimeMs;
-  if (mtime === cache.mtime) return cache.map;
+  if (mtime === cache.mtime) return cache;
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(FILE);
   const map = new Map();
   const slot = (c) => { if (!map.has(c)) map.set(c, { maoDeObra: [], insumos: [] }); return map.get(c); };
   const rows = (name) => { const ws = wb.getWorksheet(name); const out = []; if (!ws) return out;
     const head = ws.getRow(1).values.slice(1);
-    ws.eachRow((r, i) => { if (i === 1) return; const o = {}; head.forEach((h, k) => { let v = r.getCell(k + 1).value; if (v && v.result !== undefined) v = v.result; o[h] = v; }); if (o.codigo_os) out.push(o); });
+    ws.eachRow((r, i) => { if (i === 1) return; const o = {}; head.forEach((h, k) => { let v = r.getCell(k + 1).value; if (v && v.result !== undefined) v = v.result; o[h] = v; }); if (o.codigo_os || o.codigo_equipamento) out.push(o); });
     return out; };
-  rows('OS').forEach((r) => slot(r.codigo_os));
+  rows('OS').forEach((r) => r.codigo_os && slot(r.codigo_os));
   rows('MaoDeObra').forEach((r) => slot(r.codigo_os).maoDeObra.push({ tecnico: r.tecnico, especialidade: r.especialidade, horas: +r.horas, valorHora: +r.valor_hora, total: round(r.horas * r.valor_hora) }));
   rows('Insumos').forEach((r) => slot(r.codigo_os).insumos.push({ item: r.descricao, qtd: +r.qtd, unidade: r.unidade, valorUnit: +r.valor_unit, total: round(r.qtd * r.valor_unit) }));
-  cache = { mtime, map };
-  return map;
+  const equipamentos = rows('Equipamentos').filter((r) => r.equipamento).map((r) => ({ codigo: r.codigo_equipamento, nome: String(r.equipamento), categoria: r.categoria || '' }));
+  cache = { mtime, map, equipamentos };
+  return cache;
+}
+// Lista de equipamentos do hospital (aba Equipamentos do Neovero simulado)
+async function getEquipamentos() {
+  const l = (await loadAll()).equipamentos;
+  return l.length ? l : EQUIPAMENTOS.map((e, i) => ({ codigo: 'EQ-' + String(i + 1).padStart(3, '0'), nome: e.nome, categoria: e.categoria }));
 }
 
 async function getCustos(codigo) {
@@ -62,12 +72,13 @@ function gerarLinhas(os, rnd = Math.random) {
   return { mo, ins };
 }
 
-async function writeWorkbook(osList, linhasPorOS) {
+async function writeWorkbook(osList, linhasPorOS, equipamentos = []) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Simulador Neovero (OS Inteligente)';
   const mk = (name, cols, rows) => { const ws = wb.addWorksheet(name); ws.columns = cols.map(([header, key, width]) => ({ header, key, width })); rows.forEach((r) => ws.addRow(r)); ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }; ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3D5A6B' } }; ws.views = [{ state: 'frozen', ySplit: 1 }]; return ws; };
   mk('OS', [['codigo_os', 'codigo_os', 14], ['data_lancamento', 'data_lancamento', 16], ['centro_custo', 'centro_custo', 28]], osList);
   mk('MaoDeObra', [['codigo_os', 'codigo_os', 14], ['tecnico', 'tecnico', 30], ['especialidade', 'especialidade', 18], ['horas', 'horas', 8], ['valor_hora', 'valor_hora', 12]], linhasPorOS.mo);
+  mk('Equipamentos', [['codigo_equipamento', 'codigo_equipamento', 20], ['equipamento', 'equipamento', 38], ['categoria', 'categoria', 26]], equipamentos);
   mk('Insumos', [['codigo_os', 'codigo_os', 14], ['descricao', 'descricao', 40], ['unidade', 'unidade', 10], ['qtd', 'qtd', 8], ['valor_unit', 'valor_unit', 12]], linhasPorOS.ins);
   await wb.xlsx.writeFile(FILE);
   cache.mtime = 0;
@@ -90,4 +101,4 @@ function lancarCustosSimulados(os) {
   return chain;
 }
 
-module.exports = { getCustos, getTodos, gerarLinhas, writeWorkbook, lancarCustosSimulados, FILE };
+module.exports = { getEquipamentos, getCustos, getTodos, gerarLinhas, writeWorkbook, lancarCustosSimulados, FILE };

@@ -28,26 +28,28 @@ async function api(req, res, url) {
   if (req.method === 'GET' && p === '/api/config') {
     return send(res, 200, { hospital: locais.hospital, ambientes: locais.ambientes.map((a) => ({ nome: a.nome, pavimento: a.pavimento })),
       pavimentos: [...new Set(locais.ambientes.map((a) => a.pavimento))], prioridades: PRIORIDADES,
-      ocorrencias: OCORRENCIAS.map((o) => ({ ocorrencia: o.ocorrencia, tipo: o.tipo, causa: o.causa, prioridade: o.prioridade })), proximoCodigo: store.nextCodigo() });
+      ocorrencias: OCORRENCIAS.map((o) => ({ ocorrencia: o.ocorrencia, tipo: o.tipo, causa: o.causa, prioridade: o.prioridade })), equipamentos: await nv.getEquipamentos(), proximoCodigo: store.nextCodigo() });
   }
   if (req.method === 'POST' && p === '/api/parse') {
     const { texto, foto } = await readBody(req);
     const t = clean(texto, 2000);
     if (!t && !foto) return send(res, 400, { erro: 'Fale, digite ou fotografe a ocorrência.' });
-    const d = t ? parseOS(t) : vazio();
+    const listaEq = (await nv.getEquipamentos()).map((e) => e.nome);
+    const d = t ? parseOS(t, listaEq) : vazio();
     // IA (Claude) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
     let status = foto ? 'falha' : null;
     try {
-      const v = await interpretar(t, foto);
+      const v = await interpretar(t, foto, listaEq);
       if (v && v.motivo) { if (foto) status = v.motivo; }
       else if (v) {
         if (foto) status = 'lida';
         const regras = { ...d };
-        for (const k of ['ocorrencia', 'tipo', 'causa', 'prioridade', 'ambiente', 'pavimento', 'detalheLocal', 'descricao']) d[k] = v[k] || regras[k] || '';
+        for (const k of ['ocorrencia', 'tipo', 'causa', 'prioridade', 'ambiente', 'pavimento', 'detalheLocal', 'descricao', 'equipamento']) d[k] = v[k] || regras[k] || '';
         const c = d._confianca;
         if (v.iaOcorrenciaSegura) { c.ocorrencia = 'ia'; c.causa = 'ia'; c.prioridade = 'ia'; }
         else if (v.ocorrencia) { c.ocorrencia = 'revisar'; c.prioridade = 'revisar'; }
         if (v.ambiente) c.local = 'ia';
+        if (v.equipamento) c.equipamento = 'ia';
       }
     } catch (e) { console.error('interpretação por IA falhou:', e.message); }
     d._foto = status;
@@ -57,6 +59,7 @@ async function api(req, res, url) {
     const b = await readBody(req);
     if (!clean(b.ambiente) || !clean(b.ocorrencia)) return send(res, 400, { erro: 'Ambiente e ocorrência são obrigatórios.' });
     if (!PRIORIDADES.includes(b.prioridade)) return send(res, 400, { erro: 'Prioridade inválida.' });
+    const equipamentoValido = (await nv.getEquipamentos()).some((e) => e.nome === b.equipamento) ? b.equipamento : '';
     const codigo = store.nextCodigo();
     let foto = null;
     if (typeof b.foto === 'string' && /^data:image\/(png|jpe?g|webp);base64,/.test(b.foto)) {
@@ -66,7 +69,7 @@ async function api(req, res, url) {
       fs.writeFileSync(path.join(UPLOADS, foto), Buffer.from(b.foto.split(',')[1], 'base64'));
     }
     const os = { codigo, abertura: new Date().toISOString(), fechamento: null, status: 'Aberta', pavimento: clean(b.pavimento, 60), ambiente: clean(b.ambiente, 80), detalheLocal: clean(b.detalheLocal, 80),
-      tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000) || (b.foto ? 'Registro por foto.' : clean(b.ocorrencia, 80)),
+      tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), equipamento: equipamentoValido, causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000) || (b.foto ? 'Registro por foto.' : clean(b.ocorrencia, 80)),
       canal: ['voz', 'texto', 'foto'].includes(b.canal) ? b.canal : 'texto', registradoPor: clean(b.registradoPor, 60) || 'Operação', foto };
     store.add(os);
     return send(res, 201, os);

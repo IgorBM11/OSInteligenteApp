@@ -2,7 +2,7 @@
 // Decupagem do texto (transcrição de voz ou digitado) em campos da OS.
 // MVP: regras + palavras-chave (determinístico, sem custo). A função parseOS tem a mesma
 // assinatura que teria uma versão com LLM, então pode ser trocada depois sem mexer no app.
-const { locais, PRIORIDADES, OCORRENCIAS, GENERICA } = require('./catalogo');
+const { locais, PRIORIDADES, OCORRENCIAS, GENERICA, EQUIPAMENTOS } = require('./catalogo');
 
 const norm = (s) => ' ' + s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9º°\-\s]/g, ' ').replace(/\s+/g, ' ') + ' ';
 
@@ -55,13 +55,27 @@ function prioridade(base, n, ambNome) {
   return PRIORIDADES[Math.max(0, Math.min(3, i))];
 }
 
-function parseOS(texto) {
+// Equipamento citado no texto: compara o nome (da aba Equipamentos do Neovero) e apelidos conhecidos
+function detectaEquipamento(n, nomes) {
+  let best = '', len = 0;
+  for (const nome of nomes) {
+    const conhecido = EQUIPAMENTOS.find((e) => e.nome === nome);
+    for (const al of [nome, ...(conhecido ? conhecido.aliases : [])]) {
+      const a = norm(al).trim();
+      if (a.length > len && (n.includes(' ' + a + ' ') || n.includes(' ' + a + 's ') || n.includes(' ' + a + 'es '))) { best = nome; len = a.length; } // palavra inteira
+    }
+  }
+  return best;
+}
+
+function parseOS(texto, equipamentos = EQUIPAMENTOS.map((e) => e.nome)) {
   const original = (texto || '').trim();
   const n = norm(original);
   const { o, achou } = detectaOcorrencia(n);
   const amb = detectaAmbiente(n);
   const pav = detectaPavimento(n, amb);
   const detalhe = detectaDetalhe(n);
+  const equip = detectaEquipamento(n, equipamentos);
   const conf = (b) => (b ? 'ia' : 'revisar');
   // sem correspondência: deixa ocorrência/tipo/causa em branco para o operador escolher
   const sem = !achou;
@@ -73,14 +87,15 @@ function parseOS(texto) {
     tipo: sem ? '' : o.tipo,
     ocorrencia: sem ? '' : o.ocorrencia,
     causa: sem ? '' : o.causa,
+    equipamento: equip,
     prioridade: prioridade(o.prioridade, n, amb && amb.nome),
-    _confianca: { local: conf(!!amb), ocorrencia: conf(achou), prioridade: conf(achou), causa: conf(achou) },
+    _confianca: { local: conf(!!amb), ocorrencia: conf(achou), prioridade: conf(achou), causa: conf(achou), equipamento: 'ia' },
   };
 }
 
 function vazio() {
-  return { descricao: '', pavimento: '', ambiente: '', detalheLocal: '', tipo: '', ocorrencia: '', causa: '', prioridade: '',
-    _confianca: { local: 'revisar', ocorrencia: 'revisar', prioridade: 'revisar', causa: 'revisar' } };
+  return { descricao: '', pavimento: '', ambiente: '', detalheLocal: '', tipo: '', ocorrencia: '', causa: '', prioridade: '', equipamento: '',
+    _confianca: { local: 'revisar', ocorrencia: 'revisar', prioridade: 'revisar', causa: 'revisar', equipamento: 'revisar' } };
 }
 
 module.exports = { parseOS, vazio };

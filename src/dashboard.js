@@ -52,6 +52,6 @@ async function build() {
     historico: lista.map(slim).sort((a, b) => b.abertura.localeCompare(a.abertura)),
   };
 }
-const slim = (o) => ({ codigo: o.codigo, abertura: o.abertura, fechamento: o.fechamento, status: o.status, pavimento: o.pavimento, ambiente: o.ambiente, detalheLocal: o.detalheLocal, tipo: o.tipo, ocorrencia: o.ocorrencia, prioridade: o.prioridade, custo: o.custo });
+const slim = (o) => ({ codigo: o.codigo, abertura: o.abertura, fechamento: o.fechamento, status: o.status, pavimento: o.pavimento, ambiente: o.ambiente, detalheLocal: o.detalheLocal, tipo: o.tipo, ocorrencia: o.ocorrencia, equipamento: o.equipamento || '', prioridade: o.prioridade, custo: o.custo });
 
 module.exports = { build };

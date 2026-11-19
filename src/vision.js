@@ -7,7 +7,7 @@ const { locais, PRIORIDADES, OCORRENCIAS } = require('./catalogo');
 const PAVIMENTOS = [...new Set(locais.ambientes.map((a) => a.pavimento))].filter((p) => p !== 'Geral');
 const AMBIENTES = locais.ambientes.map((a) => a.nome);
 
-function montaPrompt(texto, temFoto) {
+function montaPrompt(texto, temFoto, equipamentos) {
   return `Você é um técnico de manutenção hospitalar experiente e ajuda a registrar ordens de serviço (OS) de um hospital.
 ${texto ? `Relato do operador: "${texto.slice(0, 800)}"` : 'Não há relato escrito.'}
 ${temFoto ? 'Há também uma foto da ocorrência.' : ''}
@@ -18,16 +18,17 @@ Se nenhuma ocorrência da lista servir, use "Outra ocorrência". Use "" apenas p
 Local: use pavimento/ambiente só se o relato ou a foto indicarem; não invente.
 Prioridade: Crítica = risco imediato à vida/assistência (gases medicinais, UTI/centro cirúrgico sem energia, faíscas, fumaça); Alta = afeta assistência ou causa dano crescente (infiltração, ar-condicionado em área assistencial, elevador); Média = incômodo operacional; Baixa = estético ou sem impacto.
 
-Responda APENAS um JSON com as chaves: ocorrencia, pavimento, ambiente, prioridade, detalheLocal, descricao.
+Responda APENAS um JSON com as chaves: ocorrencia, equipamento, pavimento, ambiente, prioridade, detalheLocal, descricao.
 ocorrencia: ${JSON.stringify([...OCORRENCIAS.map((o) => o.ocorrencia), 'Outra ocorrência'])}
+equipamento: o equipamento principal que aparece na foto ou é citado no relato, escolhido EXATAMENTE de ${JSON.stringify(equipamentos)}; "" se não houver equipamento identificável (ex.: infiltração no teto, piso) ou se não tiver certeza. Equipamento e ocorrência são campos independentes (ex.: equipamento "Ventilador" + ocorrência "Ventilador/exaustor com defeito"; ar-condicionado split de parede = "Ar-condicionado split").
 pavimento: ${JSON.stringify(PAVIMENTOS)}
 ambiente: ${JSON.stringify(AMBIENTES)}
 prioridade: ${JSON.stringify(PRIORIDADES)}
 detalheLocal: texto curto livre (ex.: "Leito 12"). descricao: 1 frase objetiva do problema.
 
 Exemplos:
-"ventilador quebrado no terceiro pavimento do laboratório" -> {"ocorrencia":"Ventilador/exaustor com defeito","pavimento":"3º Pavimento","ambiente":"Laboratório","prioridade":"Média","detalheLocal":"","descricao":"Ventilador quebrado no laboratório."}
-"cadeira de rodas com roda solta na recepção" -> {"ocorrencia":"Mobiliário/equipamento danificado","pavimento":"Térreo","ambiente":"Recepção / Acolhimento","prioridade":"Baixa","detalheLocal":"","descricao":"Cadeira de rodas com roda solta."}`;
+"ventilador quebrado no terceiro pavimento do laboratório" -> {"ocorrencia":"Ventilador/exaustor com defeito","equipamento":"Ventilador","pavimento":"3º Pavimento","ambiente":"Laboratório","prioridade":"Média","detalheLocal":"","descricao":"Ventilador quebrado no laboratório."}
+"cadeira de rodas com roda solta na recepção" -> {"ocorrencia":"Mobiliário/equipamento danificado","equipamento":"Cadeira de rodas","pavimento":"Térreo","ambiente":"Recepção / Acolhimento","prioridade":"Baixa","detalheLocal":"","descricao":"Cadeira de rodas com roda solta."}`;
 }
 
 const MODELO_PADRAO = 'claude-sonnet-5-5'; // Claude de porte médio; troque com ANTHROPIC_MODEL
@@ -35,7 +36,7 @@ const MODELO_PADRAO = 'claude-sonnet-5-5'; // Claude de porte médio; troque com
 let cliente = null;
 const getCliente = () => (cliente ||= new Anthropic()); // lê ANTHROPIC_API_KEY (e ANTHROPIC_BASE_URL, se houver)
 
-async function interpretar(texto, foto) {
+async function interpretar(texto, foto, equipamentos = []) {
   if (!process.env.ANTHROPIC_API_KEY) return { motivo: 'sem_chave' };
   const content = [];
   if (foto) {
@@ -43,7 +44,7 @@ async function interpretar(texto, foto) {
     if (!m) return { motivo: 'falha' };
     content.push({ type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } });
   }
-  content.push({ type: 'text', text: montaPrompt(texto, !!foto) });
+  content.push({ type: 'text', text: montaPrompt(texto, !!foto, equipamentos) });
 
   const resp = await getCliente().messages.create({
     model: process.env.ANTHROPIC_MODEL || MODELO_PADRAO,
@@ -59,6 +60,7 @@ async function interpretar(texto, foto) {
   return {
     ocorrencia: oc ? oc.ocorrencia : outra ? 'Outra ocorrência' : '', tipo: oc ? oc.tipo : outra ? 'Predial · geral' : '', causa: oc ? oc.causa : outra ? 'A diagnosticar' : '',
     iaOcorrenciaSegura: !!oc,
+    equipamento: equipamentos.includes(j.equipamento) ? j.equipamento : '',
     prioridade: PRIORIDADES.includes(j.prioridade) ? j.prioridade : (oc ? oc.prioridade : ''),
     ambiente: AMBIENTES.includes(j.ambiente) ? j.ambiente : '',
     pavimento: PAVIMENTOS.includes(j.pavimento) ? j.pavimento : '',
