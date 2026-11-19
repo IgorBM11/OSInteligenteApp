@@ -35,19 +35,21 @@ async function api(req, res, url) {
     const t = clean(texto, 2000);
     if (!t && !foto) return send(res, 400, { erro: 'Fale, digite ou fotografe a ocorrência.' });
     const d = t ? parseOS(t) : vazio();
-    let fotoLida = false;
+    let status = null;
     if (foto) {
+      status = 'falha';
       try {
         const v = await lerFoto(foto, t);
-        if (v) {
-          fotoLida = true;
+        if (v && v.motivo) status = v.motivo;
+        else if (v) {
+          status = 'lida';
           for (const k of ['ocorrencia', 'tipo', 'causa', 'prioridade', 'ambiente', 'pavimento', 'detalheLocal', 'descricao']) if (!d[k] && v[k]) d[k] = v[k];
           if (v.ocorrencia && d._confianca.ocorrencia === 'revisar') d._confianca = { ...d._confianca, ocorrencia: 'ia', prioridade: 'ia', causa: 'ia' };
           if (v.ambiente && d._confianca.local === 'revisar') d._confianca.local = 'ia';
         }
       } catch (e) { console.error('leitura de foto falhou:', e.message); }
     }
-    d._foto = foto ? (fotoLida ? 'lida' : 'nao_lida') : null;
+    d._foto = status;
     return send(res, 200, d);
   }
   if (req.method === 'POST' && p === '/api/os') {

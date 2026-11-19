@@ -18,7 +18,7 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 | **Histórico** | Todas as OS, com filtros e detalhe de custo (mão de obra + insumos). Mudança de status. |
 
 ### Escolha voz × imagem
-Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto também é aceita (tirada na hora). **Leitura automática da foto** é opcional: defina a variável `ANTHROPIC_API_KEY` (e, se quiser, `ANTHROPIC_MODEL`) e o servidor envia a imagem ao Claude para sugerir ocorrência, local e prioridade (*recurso ainda não testado com chave real*). Sem a chave, a foto é só anexada e os campos ficam em vermelho para preenchimento manual.
+Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** usa o Google Gemini (há plano gratuito): defina `GEMINI_API_KEY` (chave gratuita em aistudio.google.com; opcional `GEMINI_MODEL`, padrão `gemini-2.5-flash`) e o servidor envia a imagem para sugerir ocorrência, local e prioridade (*ainda não testado com chave real*). Sem a chave, a foto é só anexada e os campos ficam em vermelho.
 
 ## Simulador do Neovero
 `data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
