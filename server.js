@@ -5,7 +5,7 @@ const path = require('path');
 const store = require('./src/store');
 const nv = require('./src/neovero');
 const { parseOS, vazio } = require('./src/parser');
-const { lerFoto } = require('./src/vision');
+const { interpretar } = require('./src/vision');
 const dash = require('./src/dashboard');
 const { locais, PRIORIDADES, OCORRENCIAS } = require('./src/catalogo');
 
@@ -35,20 +35,21 @@ async function api(req, res, url) {
     const t = clean(texto, 2000);
     if (!t && !foto) return send(res, 400, { erro: 'Fale, digite ou fotografe a ocorrência.' });
     const d = t ? parseOS(t) : vazio();
-    let status = null;
-    if (foto) {
-      status = 'falha';
-      try {
-        const v = await lerFoto(foto, t);
-        if (v && v.motivo) status = v.motivo;
-        else if (v) {
-          status = 'lida';
-          for (const k of ['ocorrencia', 'tipo', 'causa', 'prioridade', 'ambiente', 'pavimento', 'detalheLocal', 'descricao']) if (!d[k] && v[k]) d[k] = v[k];
-          if (v.ocorrencia && d._confianca.ocorrencia === 'revisar') d._confianca = { ...d._confianca, ocorrencia: 'ia', prioridade: 'ia', causa: 'ia' };
-          if (v.ambiente && d._confianca.local === 'revisar') d._confianca.local = 'ia';
-        }
-      } catch (e) { console.error('leitura de foto falhou:', e.message); }
-    }
+    // IA (Gemini) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
+    let status = foto ? 'falha' : null;
+    try {
+      const v = await interpretar(t, foto);
+      if (v && v.motivo) { if (foto) status = v.motivo; }
+      else if (v) {
+        if (foto) status = 'lida';
+        const regras = { ...d };
+        for (const k of ['ocorrencia', 'tipo', 'causa', 'prioridade', 'ambiente', 'pavimento', 'detalheLocal', 'descricao']) d[k] = v[k] || regras[k] || '';
+        const c = d._confianca;
+        if (v.iaOcorrenciaSegura) { c.ocorrencia = 'ia'; c.causa = 'ia'; c.prioridade = 'ia'; }
+        else if (v.ocorrencia) { c.ocorrencia = 'revisar'; c.prioridade = 'revisar'; }
+        if (v.ambiente) c.local = 'ia';
+      }
+    } catch (e) { console.error('interpretação por IA falhou:', e.message); }
     d._foto = status;
     return send(res, 200, d);
   }

@@ -14,7 +14,7 @@ function detectaOcorrencia(n) {
   let best = null, bestScore = 0;
   for (const o of OCORRENCIAS) {
     let sc = 0;
-    for (const p of o.palavras) if (n.includes(p)) sc += p.length > 8 ? 2 : 1;
+    for (const p of o.palavras) if (n.includes(' ' + p)) sc += p.includes(' ') || p.length > 8 ? 2 : 1; // início de palavra
     if (sc > bestScore) { best = o; bestScore = sc; }
   }
   return { o: best || GENERICA, achou: !!best };
@@ -63,14 +63,16 @@ function parseOS(texto) {
   const pav = detectaPavimento(n, amb);
   const detalhe = detectaDetalhe(n);
   const conf = (b) => (b ? 'ia' : 'revisar');
+  // sem correspondência: deixa ocorrência/tipo/causa em branco para o operador escolher
+  const sem = !achou;
   return {
     descricao: original.replace(/\s+/g, ' ').replace(/^./, (c) => c.toUpperCase()),
     pavimento: pav || '',
     ambiente: amb ? amb.nome : '',
     detalheLocal: detalhe || '',
-    tipo: o.tipo,
-    ocorrencia: o.ocorrencia,
-    causa: o.causa,
+    tipo: sem ? '' : o.tipo,
+    ocorrencia: sem ? '' : o.ocorrencia,
+    causa: sem ? '' : o.causa,
     prioridade: prioridade(o.prioridade, n, amb && amb.nome),
     _confianca: { local: conf(!!amb), ocorrencia: conf(achou), prioridade: conf(achou), causa: conf(achou) },
   };

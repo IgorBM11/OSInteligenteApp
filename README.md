@@ -30,7 +30,7 @@ no detalhe da OS o botão **Simular lançamento no Neovero** grava custos plaus�
 
 ## Pendências conhecidas
 - **Locais são placeholders**: não foi possível ler a tela de Pavimentos/Ambientes da Opy (exige Claude in Chrome e login). Substituir `data/locais.json` pelo cadastro real.
-- Decupagem por palavras-chave (sem LLM); sem autenticação/perfis; persistência em JSON; dados e custos fictícios.
+- Decupagem: regras com palavra inteira (sempre ativas) + raciocínio do Gemini sobre texto e foto quando `GEMINI_API_KEY` existe (a IA tem prioridade e as regras preenchem o que faltar); sem autenticação/perfis; persistência em JSON; dados e custos fictícios.
 
 ## Publicar (Render, plano gratuito)
 1. Crie conta em render.com e conecte o GitHub.
