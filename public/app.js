@@ -208,7 +208,7 @@ $('#fOrdem').onchange = () => { hf.ordem = $('#fOrdem').value; renderHist(); };
 async function abrirOS(codigo) {
   const o = await j('/api/os/' + codigo), c = o.custoDet;
   const tb = (rows, h) => `<table><tr>${h.map((x) => `<th>${x}</th>`).join('')}</tr>${rows}</table>`;
-  $('#dlgBody').innerHTML = `<h3>${o.codigo} ${badge(o.prioridade)}</h3><p class="muted">${local(o)} · aberta em ${dt(o.abertura)} · ${o.status}</p>
+  $('#dlgBody').innerHTML = `<h3>${o.codigo} ${badge(o.prioridade)} <span class="st st-${o.status.replace(' ', '')}" style="font-size:14px">${o.status}</span></h3><p class="muted">${local(o)} · aberta em ${dt(o.abertura)}</p>
     <p><b>${esc(o.ocorrencia)}</b> (${esc(o.tipo)})<br>Causa provável: ${esc(o.causa)}<br><i>${esc(o.descricao)}</i></p>${o.foto ? `<img src="/uploads/${o.foto}" alt="Foto da OS" style="max-width:100%;border-radius:12px">` : ''}
     ${c ? `<h4>Custos (Neovero)</h4>${tb(c.maoDeObra.map((m) => `<tr><td>${esc(m.tecnico)}</td><td>${m.horas} h × ${R$(m.valorHora)}</td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Mão de obra', 'Horas', 'Total'])}
       ${tb(c.insumos.map((m) => `<tr><td>${esc(m.item)}</td><td>${m.qtd} ${esc(m.unidade)} × ${R$(m.valorUnit)}</td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Insumos', 'Qtd', 'Total'])}
@@ -216,7 +216,14 @@ async function abrirOS(codigo) {
     <p class="muted" style="margin-bottom:6px">Atualizar status:</p><div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${['Aberta', 'Em andamento', 'Concluída'].map((s) => `<button class="btn ghost sm" data-st="${s}" ${s === o.status ? 'disabled' : ''}>${s}</button>`).join('')}</div>`;
   const dlg = $('#dlg'); if (!dlg.open) dlg.showModal();
   const sim = $('#simNv'); if (sim) sim.onclick = async () => { sim.textContent = 'Lançando…'; await post('/api/neovero/simular-lancamento/' + codigo); await loadDash(); abrirOS(codigo); };
-  document.querySelectorAll('[data-st]').forEach((b) => b.onclick = async () => { await post(`/api/os/${codigo}/status`, { status: b.dataset.st }); await loadDash(); abrirOS(codigo); });
+  document.querySelectorAll('[data-st]').forEach((b) => b.onclick = async () => {
+    try {
+      await post(`/api/os/${codigo}/status`, { status: b.dataset.st });
+      $('#dlg').close(); $('#dlgList').close();
+      await loadDash();
+      toast(`✅ <span><b>${codigo}</b> agora está <b>${esc(b.dataset.st)}</b></span>`);
+    } catch (e) { toast(esc(e.message)); }
+  });
 }
 $('#dlgClose').onclick = () => $('#dlg').close();
 init();
