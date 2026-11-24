@@ -1,6 +1,6 @@
 {
   "_aviso": "PLACEHOLDER: estrutura típica de hospital, baseada no Hospital Delphina Aziz (Manaus). Substituir pelo cadastro real de Ambientes > Pavimentos do sistema da Opy (a tela autenticada não pôde ser lida nesta sessão).",
-  "hospital": "Hospital Delphina Aziz",
+  "hospital": "OZN · Hospital Delphina Aziz",
   "ambientes": [
     { "nome": "Recepção / Acolhimento", "pavimento": "Térreo", "aliases": ["recepcao", "acolhimento", "hall de entrada", "triagem"] },
     { "nome": "Pronto-Socorro", "pavimento": "Térreo", "aliases": ["pronto socorro", "pronto-socorro", " ps ", "emergencia", "sala vermelha", "sala amarela"] },

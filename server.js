@@ -10,7 +10,7 @@ const iaLog = require('./src/iaLog');
 const iaPainel = require('./src/ia');
 const crypto = require('crypto');
 const dash = require('./src/dashboard');
-const { locais, PRIORIDADES, OCORRENCIAS } = require('./src/catalogo');
+const { locais, PRIORIDADES, OCORRENCIAS, areaPorCategoria, SLA_HORAS } = require('./src/catalogo');
 
 const PUB = path.join(__dirname, 'public');
 const UPLOADS = path.join(__dirname, 'data', 'uploads');
@@ -31,7 +31,7 @@ async function api(req, res, url) {
   if (req.method === 'GET' && p === '/api/config') {
     return send(res, 200, { hospital: locais.hospital, ambientes: locais.ambientes.map((a) => ({ nome: a.nome, pavimento: a.pavimento })),
       pavimentos: [...new Set(locais.ambientes.map((a) => a.pavimento))], prioridades: PRIORIDADES,
-      ocorrencias: OCORRENCIAS.map((o) => ({ ocorrencia: o.ocorrencia, tipo: o.tipo, causa: o.causa, prioridade: o.prioridade })), equipamentos: await nv.getEquipamentos(), proximoCodigo: store.nextCodigo() });
+      ocorrencias: OCORRENCIAS.map((o) => ({ ocorrencia: o.ocorrencia, tipo: o.tipo, causa: o.causa, prioridade: o.prioridade })), equipamentos: await nv.getEquipamentos(), slaHoras: SLA_HORAS, proximoCodigo: store.nextCodigo() });
   }
   if (req.method === 'POST' && p === '/api/parse') {
     const { texto, foto } = await readBody(req);
@@ -75,7 +75,8 @@ async function api(req, res, url) {
     const b = await readBody(req);
     if (!clean(b.ambiente) || !clean(b.ocorrencia)) return send(res, 400, { erro: 'Ambiente e ocorrência são obrigatórios.' });
     if (!PRIORIDADES.includes(b.prioridade)) return send(res, 400, { erro: 'Prioridade inválida.' });
-    const equipamentoValido = (await nv.getEquipamentos()).some((e) => e.nome === b.equipamento) ? b.equipamento : '';
+    const eqEncontrado = (await nv.getEquipamentos()).find((e) => e.nome === b.equipamento);
+    const equipamentoValido = eqEncontrado ? eqEncontrado.nome : '';
     const codigo = store.nextCodigo();
     let foto = null;
     if (typeof b.foto === 'string' && /^data:image\/(png|jpe?g|webp);base64,/.test(b.foto)) {
@@ -85,7 +86,7 @@ async function api(req, res, url) {
       fs.writeFileSync(path.join(UPLOADS, foto), Buffer.from(b.foto.split(',')[1], 'base64'));
     }
     const os = { codigo, abertura: new Date().toISOString(), fechamento: null, status: 'Aberta', pavimento: clean(b.pavimento, 60), ambiente: clean(b.ambiente, 80), detalheLocal: clean(b.detalheLocal, 80),
-      tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), equipamento: equipamentoValido, causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000) || (b.foto ? 'Registro por foto.' : clean(b.ocorrencia, 80)),
+      tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), equipamento: equipamentoValido, area: areaPorCategoria(eqEncontrado && eqEncontrado.categoria), causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000) || (b.foto ? 'Registro por foto.' : clean(b.ocorrencia, 80)),
       canal: ['voz', 'texto', 'foto'].includes(b.canal) ? b.canal : 'texto', registradoPor: clean(b.registradoPor, 60) || 'Operação', foto };
     store.add(os);
     if (b.parseId) iaLog.registrarRevisao(String(b.parseId), { ocorrencia: os.ocorrencia, equipamento: os.equipamento, ambiente: os.ambiente, pavimento: os.pavimento, prioridade: os.prioridade }, os.codigo);
@@ -111,6 +112,7 @@ async function api(req, res, url) {
     return send(res, 200, await osComCusto(m[1]));
   }
   if (req.method === 'GET' && p === '/api/ia') return send(res, 200, await iaPainel.build({ dias: parseInt(url.searchParams.get('dias'), 10) || 30, origem: url.searchParams.get('origem') || 'todos' }));
+  if (req.method === 'GET' && p === '/api/neovero/consulta') return send(res, 200, await dash.consultaEquipamento(clean(url.searchParams.get('equipamento'), 80), clean(url.searchParams.get('ambiente'), 80)));
   if (req.method === 'GET' && p === '/api/dashboard') return send(res, 200, await dash.build());
   if (req.method === 'GET' && p === '/neovero/planilha.xlsx') {
     res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="neovero_simulador.xlsx"' });

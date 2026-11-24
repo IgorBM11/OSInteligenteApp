@@ -119,4 +119,10 @@ const OCORRENCIA_DO_EQUIPAMENTO = {
   'Cadeira de rodas': 'Mobiliário/equipamento danificado', 'Bebedouro': 'Mobiliário/equipamento danificado',
 };
 
-module.exports = { locais, PRIORIDADES, VALOR_HORA, OCORRENCIAS, GENERICA, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA, OCORRENCIA_DO_EQUIPAMENTO };
+// Área de manutenção (a apresentação começa pela predial e segue para a engenharia clínica)
+const CATEGORIAS_ENG_CLINICA = ['Diagnóstico por imagem', 'Esterilização', 'Equipamento assistencial', 'Centro cirúrgico'];
+const areaPorCategoria = (cat) => (CATEGORIAS_ENG_CLINICA.includes(cat) ? 'Engenharia clínica' : 'Manutenção predial');
+// Prazo (SLA) de atendimento por prioridade, em horas. PREMISSA para discussão com a Opy.
+const SLA_HORAS = { Crítica: 4, Alta: 24, Média: 72, Baixa: 168 };
+
+module.exports = { areaPorCategoria, SLA_HORAS, locais, PRIORIDADES, VALOR_HORA, OCORRENCIAS, GENERICA, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA, OCORRENCIA_DO_EQUIPAMENTO };

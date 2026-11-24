@@ -4,6 +4,8 @@ const R$ = (v) => v == null ? '—' : v.toLocaleString('pt-BR', { style: 'curren
 const R$k = (v) => v >= 1000 ? 'R$ ' + (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mil' : R$(v);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const dt = (iso) => new Date(iso).toLocaleDateString('pt-BR');
+const dth = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const slaTxt = (o) => { const h = (new Date(o.fechamento) - new Date(o.abertura)) / 3600000, sla = cfg.slaHoras[o.prioridade]; return `atendida em ${h.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h · ${h <= sla ? `<span class="ok-b">dentro do SLA (${sla} h)</span>` : `<span class="er-b">fora do SLA (${sla} h)</span>`}`; };
 const local = (o) => esc([o.pavimento, o.ambiente, o.detalheLocal].filter(Boolean).join(' · '));
 const badge = (p) => `<span class="badge b-${p}">${p}</span>`;
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -56,6 +58,8 @@ function marcar(conf) {
 }
 CAMPOS.forEach(([id, , req]) => { $('#' + id).addEventListener('input', () => setS(id, $('#' + id).value ? null : (req ? 'vazio' : null))); });
 $('#f-ocorrencia').onchange = () => { const o = cfg.ocorrencias.find((x) => x.ocorrencia === $('#f-ocorrencia').value); if (o) { $('#f-tipo').value = o.tipo; $('#f-causa').value = o.causa; if (!$('#f-prioridade').value) { $('#f-prioridade').value = o.prioridade; setS('f-prioridade', null); } } };
+$('#f-equipamento').addEventListener('change', () => consultar());
+$('#f-ambiente').addEventListener('change', () => consultar());
 $('#f-ambiente').onchange = () => { const a = cfg.ambientes.find((x) => x.nome === $('#f-ambiente').value); if (a && a.pavimento !== 'Geral') { $('#f-pavimento').value = a.pavimento; setS('f-pavimento', null); } };
 document.querySelectorAll('[data-ex]').forEach((a) => a.onclick = (e) => { e.preventDefault(); $('#texto').value = a.dataset.ex; $('#texto').focus(); });
 $('#texto').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); decupar(); } });
@@ -100,16 +104,36 @@ $('#camFile').onchange = (e) => { const f = e.target.files[0]; if (!f) return; c
 $('#camCancel').onclick = () => $('#dlgCam').close();
 $('#dlgCam').addEventListener('close', pararCam);
 
+// Etapa 3 do fluxo: consulta às bases (Neovero simulado): ativo e histórico do equipamento
+let consultaSeq = 0;
+async function consultar() {
+  const eq = $('#f-equipamento').value, box = $('#consulta'), seq = ++consultaSeq;
+  if (!eq) { box.classList.add('hidden'); return; }
+  try {
+    const c = await j(`/api/neovero/consulta?equipamento=${encodeURIComponent(eq)}&ambiente=${encodeURIComponent($('#f-ambiente').value)}`);
+    if (seq !== consultaSeq) return;
+    const onde = c.escopo === 'ambiente' ? `em ${esc(c.ambiente)}` : 'no hospital';
+    box.innerHTML = c.osTotal === 0
+      ? `<h4>🔎 Consulta ao Neovero · ${esc(eq)}</h4>Sem histórico deste equipamento no Neovero: primeira ocorrência registrada.`
+      : `<h4>🔎 Consulta ao Neovero · ${esc(eq)} <span class="muted">(${onde})</span>${c.recorrente ? '<span class="alerta-rec">Recorrência: avaliar reparar × substituir</span>' : ''}</h4>
+        <b>${c.osUlt90d}</b> OS nos últimos 90 dias · <b>${c.osTotal}</b> no histórico · custo acumulado <b>${R$(c.custoTotal)}</b>
+        <ul>${c.ultimas.map((u) => `<li><a data-os="${u.codigo}">${u.codigo}</a> · ${dt(u.abertura)} · ${esc(u.ocorrencia)} · ${u.custo == null ? 'custo pendente' : R$(u.custo)}</li>`).join('')}</ul>
+        ${c.pecasFrequentes.length ? `<div class="muted" style="margin-top:6px">Peças mais usadas: ${c.pecasFrequentes.map((p) => `${esc(p.item)} (${esc(p.codigo)}) ×${p.vezes}`).join(' · ')}</div>` : ''}`;
+    box.classList.remove('hidden');
+  } catch { box.classList.add('hidden'); }
+}
+
 async function decupar() {
   const texto = $('#texto').value.trim();
   if (!texto && !foto) { $('#texto').focus(); toast('Fale, escreva ou fotografe a ocorrência.'); return; }
-  const btn = $('#btnDecupar span'); btn.textContent = 'Preenchendo…';
+  const btn = $('#btnDecupar span'); btn.textContent = 'Lendo…';
   try {
     const d = await post('/api/parse', { texto, foto });
     $('#f-pavimento').value = d.pavimento; $('#f-ambiente').value = d.ambiente; $('#f-detalhe').value = d.detalheLocal; $('#f-equipamento').value = d.equipamento || '';
     $('#f-ocorrencia').value = d.ocorrencia; $('#f-tipo').value = d.tipo; $('#f-causa').value = d.causa; $('#f-prioridade').value = d.prioridade; $('#f-descricao').value = d.descricao;
     parseId = d._id || null;
     const faltam = marcar(d._confianca);
+    consultar();
     const msgs = [];
     if (d._foto === 'sem_chave') msgs.push('📷 Foto anexada, mas a leitura automática está desativada (falta configurar a chave OPENAI_API_KEY no servidor).');
     if (d._foto === 'falha') msgs.push('📷 Foto anexada, mas não consegui lê-la agora. Preencha os campos manualmente.');
@@ -120,7 +144,7 @@ async function decupar() {
     $('#proxCodigo').textContent = 'Código ' + (await j('/api/config')).proximoCodigo;
     $('#form').classList.remove('hidden'); $('#form').scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (e) { toast(esc(e.message)); }
-  btn.textContent = 'Preencher com a IA';
+  btn.textContent = 'Leitura pela IA';
 }
 $('#btnDecupar').onclick = decupar;
 $('#form').onsubmit = async (e) => {
@@ -129,9 +153,9 @@ $('#form').onsubmit = async (e) => {
   if (faltam.length) { faltam.forEach(([id]) => setS(id, 'vazio')); $('#' + faltam[0][0]).focus(); toast('Preencha os campos destacados em vermelho.'); return; }
   try {
     const os = await post('/api/os', { pavimento: $('#f-pavimento').value, ambiente: $('#f-ambiente').value, detalheLocal: $('#f-detalhe').value, equipamento: $('#f-equipamento').value, ocorrencia: $('#f-ocorrencia').value, tipo: $('#f-tipo').value, causa: $('#f-causa').value, prioridade: $('#f-prioridade').value, descricao: $('#f-descricao').value, canal, foto, parseId: parseId });
-    toast(`✅ <span><b>${os.codigo}</b> registrada</span> <a id="tVer">Ver no histórico</a>`);
+    toast(`✅ <span><b>${os.codigo}</b> registrada às ${new Date(os.abertura).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} (abertura automática)</span> <a id="tVer">Ver no histórico</a>`);
     $('#tVer').onclick = () => irHistorico({ q: os.codigo });
-    $('#form').classList.add('hidden'); $('#texto').value = ''; foto = null; parseId = null; $('#fotoChip').classList.add('hidden'); canal = 'texto'; window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('#consulta').classList.add('hidden'); $('#form').classList.add('hidden'); $('#texto').value = ''; foto = null; parseId = null; $('#fotoChip').classList.add('hidden'); canal = 'texto'; window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) { toast(esc(err.message)); }
 };
 
@@ -154,6 +178,9 @@ function renderDash() {
     [k.totalOS, 'Ordens de serviço', {}, ''],
     [k.abertas, 'Em aberto', { status: 'abertas' }, ''],
     [k.criticasAbertas, 'Alta/crítica em aberto', { status: 'abertas', altaCrit: 1 }, 'alert'],
+    [(k.slaPct == null ? '—' : k.slaPct.toLocaleString('pt-BR') + '%'), 'Concluídas dentro do SLA', { status: 'abertas', atraso: 1 }, k.emAtraso ? 'alert' : ''],
+    [k.comEquipamentoPct.toLocaleString('pt-BR') + '%', 'OS com equipamento identificado', { comEquip: 1 }, ''],
+    [k.recorrentes, 'OS recorrentes (90 dias)', { recorrente: 1 }, k.recorrentes ? 'alert' : ''],
     [R$(k.custoTotal), 'Custo total (Neovero)', { custo: 'com', ordem: 'custo' }, ''],
     [R$(k.custoMedio), 'Custo médio por OS', { custo: 'com', ordem: 'custo' }, ''],
     [R$(k.custoMes), 'Custo no mês corrente', { mes: mesAtual(), ordem: 'custo' }, ''],
@@ -172,6 +199,12 @@ function renderDash() {
   $('#chPrio').innerHTML = `<div class="donut-wrap"><div class="donut" data-total="${tot}" style="background:conic-gradient(${grad})"></div><div class="leg">${d.porPrioridade.slice().reverse().map((x) => `<button data-p="${x.chave}"><i style="background:${COR[x.chave]}"></i>${x.chave}<b>${x.qtd}</b></button>`).join('')}</div></div>`;
   $('#chPrio').querySelectorAll('[data-p]').forEach((b) => b.onclick = () => irHistorico({ prio: b.dataset.p }));
 
+  const tc = d.composicao, tt = Math.max(1, tc.maoDeObra + tc.pecas + tc.servicos);
+  const partes = [['Mão de obra', tc.maoDeObra, '#2bb99f'], ['Peças (almoxarifado)', tc.pecas, '#168a74'], ['Serviço externo', tc.servicos, '#df632e']];
+  $('#chComp').innerHTML = `<div class="comp-bar">${partes.map(([, v, c]) => `<i style="width:${v / tt * 100}%;background:${c}"></i>`).join('')}</div><div class="comp-leg">${partes.map(([n, v, c]) => `<div><i style="background:${c}"></i>${n}<b>${R$(v)} · ${(v / tt * 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}%</b></div>`).join('')}</div><p class="muted" style="margin:10px 0 0">Custo da OS = horas × custo-hora do cargo + peças vinculadas + serviço externo.</p>`;
+  hbars('#chArea', d.porArea, (x) => x.custo, R$, (x) => irHistorico({ area: x.chave, ordem: 'custo' }));
+  $('#tbEquip').innerHTML = `<tr><th>Equipamento</th><th class="r">OS</th><th class="r">Recorrências</th><th class="r">Custo</th><th class="r">Custo médio</th></tr>` + d.porEquipamento.slice(0, 10).map((e) => `<tr data-eq="${esc(e.chave)}"><td><b>${esc(e.chave)}</b></td><td class="r">${e.qtd}</td><td class="r ${e.recorrentes ? 'rec-n' : ''}">${e.recorrentes}</td><td class="r">${R$(e.custo)}</td><td class="r">${R$(e.custo / e.qtd)}</td></tr>`).join('');
+  $('#tbEquip').querySelectorAll('tr[data-eq]').forEach((tr) => tr.onclick = () => irHistorico({ equipamento: tr.dataset.eq, ordem: 'custo' }));
   hbars('#chTipo', d.porTipo, (x) => x.custo, R$, (x) => irHistorico({ tipo: x.chave, ordem: 'custo' }));
   hbars('#chAmb', d.porAmbiente.slice(0, 8), (x) => x.custo, R$, (x) => irHistorico({ ambiente: x.chave, ordem: 'custo' }));
 
@@ -187,13 +220,13 @@ $('#listClose').onclick = () => $('#dlgList').close();
 document.addEventListener('click', (e) => { const r = e.target.closest('[data-os],tr[data-os]'); if (r) abrirOS(r.dataset.os); });
 
 // ---------- Histórico ----------
-const ROT = { tipo: (v) => v, ambiente: (v) => v, mes: (v) => 'Mês ' + MESES[+v.slice(5) - 1] + '/' + v.slice(0, 4), altaCrit: () => 'Prioridade alta/crítica', custo: (v) => v === 'sem' ? 'Custo pendente' : 'Com custo no Neovero' };
+const ROT = { tipo: (v) => v, ambiente: (v) => v, equipamento: (v) => 'Equipamento: ' + v, area: (v) => v, comEquip: () => 'Com equipamento identificado', recorrente: () => 'Recorrentes (90 dias)', atraso: () => 'Em atraso (SLA)', mes: (v) => 'Mês ' + MESES[+v.slice(5) - 1] + '/' + v.slice(0, 4), altaCrit: () => 'Prioridade alta/crítica', custo: (v) => v === 'sem' ? 'Custo pendente' : 'Com custo no Neovero' };
 function renderHist() {
   if (!dashData) return;
   $('#busca').value = hf.q || ''; $('#fStatus').value = hf.status || ''; $('#fPrio').value = hf.prio || ''; $('#fOrdem').value = hf.ordem || 'data';
   const q = (hf.q || '').toLowerCase();
   let l = dashData.historico.filter((o) => (!hf.status || (hf.status === 'abertas' ? o.status !== 'Concluída' : o.status === hf.status)) && (!hf.prio || o.prioridade === hf.prio) && (!hf.altaCrit || PESO[o.prioridade] >= 2)
-    && (!hf.tipo || o.tipo === hf.tipo) && (!hf.ambiente || o.ambiente === hf.ambiente) && (!hf.mes || o.abertura.startsWith(hf.mes)) && (!hf.custo || (hf.custo === 'sem' ? o.custo == null : o.custo != null))
+    && (!hf.tipo || o.tipo === hf.tipo) && (!hf.ambiente || o.ambiente === hf.ambiente) && (!hf.equipamento || o.equipamento === hf.equipamento) && (!hf.area || o.area === hf.area) && (!hf.comEquip || o.equipamento) && (!hf.recorrente || o.recorrente) && (!hf.atraso || (Date.now() - new Date(o.abertura)) / 3600000 > dashData.slaHoras[o.prioridade]) && (!hf.mes || o.abertura.startsWith(hf.mes)) && (!hf.custo || (hf.custo === 'sem' ? o.custo == null : o.custo != null))
     && (!q || (o.codigo + ' ' + o.ocorrencia + ' ' + o.ambiente + ' ' + o.pavimento + ' ' + o.tipo + ' ' + o.detalheLocal + ' ' + (o.equipamento || '')).toLowerCase().includes(q)));
   if (hf.ordem === 'custo') l = [...l].sort((a, b) => (b.custo ?? -1) - (a.custo ?? -1));
   else if (hf.ordem === 'prio') l = [...l].sort((a, b) => PESO[b.prioridade] - PESO[a.prioridade] || b.abertura.localeCompare(a.abertura));
@@ -212,11 +245,13 @@ $('#fOrdem').onchange = () => { hf.ordem = $('#fOrdem').value; renderHist(); };
 async function abrirOS(codigo) {
   const o = await j('/api/os/' + codigo), c = o.custoDet;
   const tb = (rows, h) => `<table><tr>${h.map((x) => `<th>${x}</th>`).join('')}</tr>${rows}</table>`;
-  $('#dlgBody').innerHTML = `<h3>${o.codigo} ${badge(o.prioridade)} <span class="st st-${o.status.replace(' ', '')}" style="font-size:14px">${o.status}</span></h3><p class="muted">${local(o)} · aberta em ${dt(o.abertura)}</p>
+  $('#dlgBody').innerHTML = `<h3>${o.codigo} ${badge(o.prioridade)} <span class="st st-${o.status.replace(' ', '')}" style="font-size:14px">${o.status}</span></h3><p class="muted">${local(o)} · ${esc(o.area || 'Manutenção predial')}</p>
+    <p class="muted" style="margin-top:-8px">Abertura ${dth(o.abertura)} <small>(automática)</small>${o.fechamento ? ` · Fechamento ${dth(o.fechamento)} <small>(automático)</small> · ${slaTxt(o)}` : ` · SLA de ${cfg.slaHoras[o.prioridade]} h`}</p>
     <p><b>${esc(o.ocorrencia)}</b> (${esc(o.tipo)})${o.equipamento ? `<br>Equipamento: <b>${esc(o.equipamento)}</b>` : ''}<br>Causa provável: ${esc(o.causa)}<br><i>${esc(o.descricao)}</i></p>${o.foto ? `<img src="/uploads/${o.foto}" alt="Foto da OS" style="max-width:100%;border-radius:12px">` : ''}
     ${c ? `<h4>Custos (Neovero)</h4>${tb(c.maoDeObra.map((m) => `<tr><td>${esc(m.tecnico)}</td><td>${m.horas} h × ${R$(m.valorHora)}</td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Mão de obra', 'Horas', 'Total'])}
-      ${tb(c.insumos.map((m) => `<tr><td>${esc(m.item)}</td><td>${m.qtd} ${esc(m.unidade)} × ${R$(m.valorUnit)}</td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Insumos', 'Qtd', 'Total'])}
-      <p class="tot">Total: ${R$(c.total)}</p>` : `<div class="warn">Custo pendente: ainda não há lançamento desta OS no Neovero.<br><br><button class="btn" id="simNv">Simular lançamento no Neovero</button> <small class="muted">(demonstração)</small></div>`}
+      ${tb(c.pecas.map((m) => `<tr><td>${esc(m.item)} <small class="muted">${esc(m.codigo || '')}</small></td><td>${m.qtd} ${esc(m.unidade)} × ${R$(m.valorUnit)}</td><td class="r">${R$(m.total)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nenhuma peça vinculada.</td></tr>', ['Peças (almoxarifado)', 'Qtd', 'Total'])}
+      ${c.servicos.length ? tb(c.servicos.map((m) => `<tr><td>${esc(m.fornecedor)}<br><small class="muted">${esc(m.descricao)}</small></td><td></td><td class="r">${R$(m.total)}</td></tr>`).join(''), ['Serviço externo', '', 'Total']) : ''}
+      <p class="tot">Mão de obra ${R$(c.totalMaoDeObra)} + peças ${R$(c.totalPecas)} + serviço externo ${R$(c.totalServicos)} = <b>${R$(c.total)}</b></p>` : `<div class="warn">Custo pendente: ainda não há lançamento desta OS no Neovero.<br><br><button class="btn" id="simNv">Simular lançamento no Neovero</button> <small class="muted">(demonstração)</small></div>`}
     <p class="muted" style="margin-bottom:6px">Atualizar status:</p><div class="row" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${['Aberta', 'Em andamento', 'Concluída'].map((s) => `<button class="btn ghost sm" data-st="${s}" ${s === o.status ? 'disabled' : ''}>${s}</button>`).join('')}</div>`;
   const dlg = $('#dlg'); if (!dlg.open) dlg.showModal();
   const sim = $('#simNv'); if (sim) sim.onclick = async () => { sim.textContent = 'Lançando…'; await post('/api/neovero/simular-lancamento/' + codigo); await loadDash(); abrirOS(codigo); };
@@ -256,7 +291,7 @@ async function loadIA() {
     [pc(k.sucesso), 'Taxa de sucesso', 'chamadas que a IA respondeu'],
     [seg(k.latMedia), 'Latência média', 'p95: ' + seg(k.latP95)],
     [fmtN(k.tokensTotal), 'Tokens consumidos', `${fmtN(k.tokensEntrada)} entrada · ${fmtN(k.tokensSaida)} saída`],
-    [usd(k.custoUSD), 'Custo estimado', 'por chamada: ' + usd(k.custoPorChamadaUSD, 4)],
+    [usd(k.custoUSD), 'Custo estimado da IA', 'por OS: ' + usd(k.custoPorChamadaUSD, 4)],
     [pc(k.semCorrecao), 'OS aceitas sem correção', k.corrigidosPorOS == null ? 'sem OS confirmadas' : `${String(k.corrigidosPorOS).replace('.', ',')} campos corrigidos por OS`],
     [pc(k.pctComFoto), 'Chamadas com foto', `~${fmtN(k.mediaTokensPorChamada)} tokens por chamada`],
     [bytes(d.armazenamento.totalBytes), 'Armazenamento em uso', `${d.armazenamento.fotos} foto(s) salva(s)`],
@@ -284,7 +319,7 @@ async function loadIA() {
   $('#iaArm').innerHTML = `<div class="hbars">${d.armazenamento.itens.map((i) => `<div class="b" style="cursor:default"><span title="${esc(i.detalhe)}">${esc(i.nome)}</span><div class="t"><i style="width:${Math.max(2, i.bytes / maxA * 100)}%"></i></div><span>${bytes(i.bytes)}</span></div>`).join('')}</div>
     <p class="muted" style="margin:8px 0 0">Total em disco: <b>${bytes(d.armazenamento.totalBytes)}</b>. No plano gratuito do Render o disco é temporário: os arquivos voltam ao estado inicial a cada reinício.</p>
     <div class="sec-h">Projeção para ~${pj.osPorDia} OS/dia (um hospital)</div>
-    <dl class="kv"><dt>Foto média (${pj.pctFoto}% das chamadas)</dt><dd>${pj.fotoMedKB} KB</dd><dt>Fotos por mês</dt><dd>~${fmtN(pj.fotosMesMB)} MB</dd><dt>Fotos por ano</dt><dd>~${String(pj.fotosAnoGB).replace('.', ',')} GB</dd><dt>Tokens por mês</dt><dd>~${fmtN(pj.tokensMes)}</dd><dt>Custo da IA por mês</dt><dd>~${usd(pj.custoMesUSD)}</dd></dl>`;
+    <dl class="kv"><dt>Foto média (${pj.pctFoto}% das chamadas)</dt><dd>${pj.fotoMedKB} KB</dd><dt>Fotos por mês</dt><dd>~${fmtN(pj.fotosMesMB)} MB</dd><dt>Fotos por ano</dt><dd>~${String(pj.fotosAnoGB).replace('.', ',')} GB</dd><dt>Tokens por mês</dt><dd>~${fmtN(pj.tokensMes)}</dd><dt>Custo de sustentação da IA por mês</dt><dd>~${usd(pj.custoMesUSD)}</dd></dl>`;
 
   const cf = d.config;
   $('#iaCfg').innerHTML = `<dl class="kv"><dt>Provedor</dt><dd>${esc(cf.provedor)}</dd><dt>Modelo principal</dt><dd>${esc(cf.modelo)}</dd><dt>Modelos de reserva</dt><dd>${cf.reserva.map(esc).join(', ')}</dd>

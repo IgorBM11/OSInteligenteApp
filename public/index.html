@@ -27,7 +27,7 @@
 <section id="tab-registrar" class="tab on">
   <div class="hero">
     <h1>O que está acontecendo?</h1>
-    <p class="sub">Fale, escreva ou fotografe a ocorrência. A IA preenche a ordem de serviço para você.</p>
+    <p class="sub">Foto ou voz, sem formulário. A IA lê o relato e devolve a ordem de serviço preenchida.</p>
 
     <div class="composer">
       <div id="fotoChip" class="foto-chip hidden"><img id="fotoThumb" alt="Foto da ocorrência"><button type="button" id="fotoRemover" aria-label="Remover foto">×</button></div>
@@ -36,7 +36,7 @@
         <button type="button" id="btnCamera" class="icon" title="Tirar foto" aria-label="Tirar foto"><svg viewBox="0 0 24 24"><path d="M9 4 7.2 6H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2.2L15 4H9Zm3 4.5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg></button>
         <button type="button" id="mic" class="icon" title="Falar" aria-label="Gravar por voz"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/></svg></button>
         <span id="micStatus" class="muted"></span>
-        <button type="button" id="btnDecupar" class="send" title="Preencher com a IA" aria-label="Preencher com a IA"><span>Preencher com a IA</span><svg viewBox="0 0 24 24"><path d="M12 4 4 12l1.4 1.4L11 7.8V20h2V7.8l5.6 5.6L20 12l-8-8Z"/></svg></button>
+        <button type="button" id="btnDecupar" class="send" title="Leitura pela IA" aria-label="Leitura pela IA"><span>Leitura pela IA</span><svg viewBox="0 0 24 24"><path d="M12 4 4 12l1.4 1.4L11 7.8V20h2V7.8l5.6 5.6L20 12l-8-8Z"/></svg></button>
       </div>
     </div>
     <div class="exemplos">Experimente:
@@ -55,8 +55,9 @@
         <label data-f="f-ambiente">Ambiente<select id="f-ambiente" required></select></label>
         <label data-f="f-detalhe" class="full"><span>Detalhe do local <em>(opcional)</em></span><input id="f-detalhe" placeholder="Ex.: Leito 12, Sala 3"></label>
         <label data-f="f-equipamento" class="full"><span>Equipamento <em>(opcional · lista do Neovero)</em></span><select id="f-equipamento"></select></label>
-        <label data-f="f-ocorrencia">Ocorrência<select id="f-ocorrencia" required></select></label>
+        <div id="consulta" class="consulta full hidden"></div>
         <label data-f="f-tipo">Tipo de serviço<input id="f-tipo"></label>
+        <label data-f="f-ocorrencia">Ocorrência<select id="f-ocorrencia" required></select></label>
         <label data-f="f-causa" class="full">Causa provável<input id="f-causa"></label>
         <label data-f="f-prioridade" class="full">Prioridade<select id="f-prioridade" required></select></label>
         <label data-f="f-descricao" class="full">Descrição<textarea id="f-descricao" rows="2"></textarea></label>
@@ -66,16 +67,17 @@
 
   </div>
   <div class="steps">
-    <div><i>1</i><b>Captura</b><span>Fale, escreva ou fotografe na hora, sem formulário.</span></div>
-    <div><i>2</i><b>Preenchimento</b><span>A IA identifica local, tipo de serviço, ocorrência, causa e prioridade.</span></div>
-    <div><i>3</i><b>Confirmação</b><span>Você confere e ajusta. O que a IA não soube fica destacado.</span></div>
-    <div><i>4</i><b>Custo e análise</b><span>O custo vem do Neovero e a OS entra no dashboard e no histórico.</span></div>
+    <div><i>1</i><b>Captura simples</b><span>Foto ou voz: o problema é descrito em poucos segundos, sem formulário.</span></div>
+    <div><i>2</i><b>Leitura pela IA</b><span>Decupa o relato: local, equipamento, tipo de serviço, ocorrência e prioridade.</span></div>
+    <div><i>3</i><b>Consulta às bases</b><span>Busca no Neovero o ativo e o histórico do equipamento (nesta versão, base simulada).</span></div>
+    <div><i>4</i><b>Confirmação</b><span>A ordem volta preenchida e o técnico confere e ajusta em um toque.</span></div>
+    <div><i>5</i><b>Registro</b><span>Ordem gravada com abertura e fechamento automáticos, pronta para análise.</span></div>
   </div>
 </section>
 
 <!-- DASHBOARD -->
 <section id="tab-dashboard" class="tab">
-  <div class="bar"><div><h2>Dashboard de manutenção</h2><span class="muted" id="dashAt"></span></div>
+  <div class="bar"><div><h2>Visão em tempo real da manutenção</h2><span class="muted" id="dashAt"></span></div>
     <a class="btn ghost" href="/neovero/planilha.xlsx">⬇ Base de custos Neovero <small>(simulação · .xlsx)</small></a></div>
   <div id="kpis" class="kpis"></div>
   <div class="cols">
@@ -83,9 +85,14 @@
     <div class="card"><h3>Distribuição por prioridade</h3><div id="chPrio"></div></div>
   </div>
   <div class="cols">
+    <div class="card"><h3>Composição do custo <small>(mão de obra + peças + serviço externo)</small></h3><div id="chComp"></div></div>
+    <div class="card"><h3>Custo por área</h3><div id="chArea"></div></div>
+  </div>
+  <div class="cols">
     <div class="card"><h3>Custo por tipo de serviço</h3><div id="chTipo"></div></div>
     <div class="card"><h3>Custo por ambiente <small>(8 maiores)</small></h3><div id="chAmb"></div></div>
   </div>
+  <div class="card" style="margin-bottom:14px"><h3>Equipamentos: ocorrências, recorrência e custo</h3><small class="muted">Histórico por equipamento. Recorrência = mesmo equipamento no mesmo ambiente nos 90 dias anteriores. Clique para ver as OS.</small><div class="tbl-wrap"><table id="tbEquip"></table></div></div>
   <div class="cols">
     <div class="card"><div class="card-head"><div><h3>Fila de prioridade</h3><small class="muted">OS em aberto, por urgência, tempo parado e custo</small></div><button class="btn ghost sm" id="vtPrio"></button></div><div id="rkPrio"></div></div>
     <div class="card"><div class="card-head"><div><h3>Maiores custos por OS</h3><small class="muted">Valores consolidados do Neovero</small></div><button class="btn ghost sm" id="vtCusto"></button></div><div id="rkCusto"></div></div>

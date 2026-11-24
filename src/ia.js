@@ -72,12 +72,12 @@ async function build({ dias = 30, origem = 'todos' } = {}) {
   const errosAgrup = {};
   for (const e of l.filter((x) => x.erro)) { const k = e.erro.replace(/\d{4,}/g, 'N').slice(0, 70); errosAgrup[k] = (errosAgrup[k] || 0) + 1; }
 
-  // armazenamento + projeção (referência da apresentação: ~100 OS/dia em um hospital)
+  // armazenamento + projeção (referência da apresentação: ~170 OS/dia em um hospital)
   const arm = armazenamento();
   const fotosLog = l.filter((e) => e.fotoKB > 0);
   const fotoMedKB = fotosLog.length ? Math.round(media(fotosLog, (e) => e.fotoKB)) : 150;
   const pctFoto = l.length ? fotosLog.length / l.length : 0.4;
-  const OS_DIA = 100;
+  const OS_DIA = 170; // apresentação: ~170 OS/dia em um único hospital (OZN)
   const custoMedio = ok.length ? custoTotal / l.filter((e) => e.custo_usd > 0).length : 0;
   const projecao = {
     osPorDia: OS_DIA, fotoMedKB, pctFoto: Math.round(pctFoto * 100),

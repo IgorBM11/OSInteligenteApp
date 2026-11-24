@@ -3,7 +3,7 @@
 const store = require('../src/store');
 const nv = require('../src/neovero');
 const iaLog = require('../src/iaLog');
-const { locais, OCORRENCIAS, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA } = require('../src/catalogo');
+const { locais, OCORRENCIAS, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA, areaPorCategoria } = require('../src/catalogo');
 
 let seed = 20261119;
 const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
@@ -16,7 +16,8 @@ const PESO = { 'Lâmpada queimada / iluminação': 5, 'Vazamento de água': 4, '
 const bag = OCORRENCIAS.flatMap((o) => Array(PESO[o.ocorrencia] || 1).fill(o));
 const PRIOS = ['Baixa', 'Média', 'Alta', 'Crítica'];
 
-const lista = [], mo = [], ins = [], osNv = [];
+const lista = [], mo = [], ins = [], serv = [], osNv = [];
+const DUR_H = { Crítica: [1, 6], Alta: [3, 30], Média: [8, 90], Baixa: [24, 220] }; // horas até o fechamento
 const N = 96;
 for (let i = 0; i < N; i++) {
   const diasAtras = Math.floor((1 - Math.pow(rnd(), 0.8)) * 170) ; // mais recentes um pouco mais frequentes
@@ -33,9 +34,10 @@ for (let i = 0; i < N; i++) {
   const eqs = EQUIP_POR_OCORRENCIA[o.ocorrencia];
   const equipamento = eqs ? (pick(eqs) || '') : '';
   const codigo = `OS-${abertura.getFullYear()}-${String(1001 + i).padStart(5, '0')}`;
-  const fechamento = status === 'Concluída' ? new Date(abertura.getTime() + (0.3 + rnd() * 5) * 86400000).toISOString() : null;
+  const dur = DUR_H[prioridade]; const fechamento = status === 'Concluída' ? new Date(abertura.getTime() + (dur[0] + rnd() * (dur[1] - dur[0])) * 3600000).toISOString() : null;
+  const eqCat = (EQUIPAMENTOS.find((e) => e.nome === equipamento) || {}).categoria;
   const os = { codigo, abertura: abertura.toISOString(), fechamento, status, pavimento: pav, ambiente: amb.nome, detalheLocal: detalhe,
-    tipo: o.tipo, ocorrencia: o.ocorrencia, equipamento, causa: o.causa, prioridade,
+    area: areaPorCategoria(eqCat), tipo: o.tipo, ocorrencia: o.ocorrencia, equipamento, causa: o.causa, prioridade,
     descricao: `${o.ocorrencia} - ${amb.nome}${detalhe ? ', ' + detalhe : ''}.`, canal: pick(['voz', 'voz', 'texto', 'foto']), registradoPor: pick(REGISTRADORES) };
   lista.push(os);
 }
@@ -44,12 +46,13 @@ lista.forEach((o, i) => { o.codigo = `OS-${o.abertura.slice(0, 4)}-${String(1001
 
 for (const os of lista) {
   if (os.status === 'Aberta') continue; // ainda sem lançamento no Neovero
-  const { mo: m, ins: n } = nv.gerarLinhas(os, rnd);
+  const { mo: m, ins: n, serv: sv } = nv.gerarLinhas(os, rnd);
   // recorrência/serviço grande: algumas OS caras
   if (rnd() < 0.08) n.forEach((x) => { x.qtd *= 4; });
   osNv.push({ codigo_os: os.codigo, data_lancamento: (os.fechamento || os.abertura).slice(0, 10), centro_custo: `${os.pavimento} / ${os.ambiente}` });
   m.forEach((x) => mo.push({ codigo_os: os.codigo, ...x }));
   n.forEach((x) => ins.push({ codigo_os: os.codigo, ...x }));
+  sv.forEach((x) => serv.push({ codigo_os: os.codigo, ...x }));
 }
 
 store.replaceAll(lista);
@@ -95,4 +98,4 @@ store.replaceAll(lista);
   console.log(`Log da IA (demonstração): ${demo.length} chamadas.`);
 }
 const eqRows = EQUIPAMENTOS.map((e, i) => ({ codigo_equipamento: 'EQ-' + String(i + 1).padStart(3, '0'), equipamento: e.nome, categoria: e.categoria }));
-nv.writeWorkbook(osNv, { mo, ins }, eqRows).then(() => console.log(`OK: ${lista.length} OS, ${osNv.length} com custos no Neovero simulado.`));
+nv.writeWorkbook(osNv, { mo, ins, serv }, eqRows).then(() => console.log(`OK: ${lista.length} OS, ${osNv.length} com custos no Neovero simulado.`));

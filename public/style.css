@@ -38,12 +38,12 @@ label[data-s=vazio] :is(input,select,textarea){border-color:var(--crit);backgrou
 label[data-s=vazio]{color:var(--crit)}
 .btn{background:var(--teal-d);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}.btn:hover{background:var(--teal-xd)}
 .btn.ghost{background:#fff;color:var(--teal-xd);border:1.5px solid var(--line)}.btn.ghost:hover{border-color:var(--teal);background:#fff}.btn.sm{padding:6px 12px;font-size:13px;white-space:nowrap}.btn.big{width:100%;margin-top:16px;padding:14px}.btn small{font-weight:400;color:var(--muted)}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:44px auto 0;max-width:1020px;text-align:left}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin:44px auto 0;max-width:1100px;text-align:left}
 .steps div{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:4px}
 .steps i{width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;font-style:normal;font-weight:800;font-size:13px;display:grid;place-items:center;margin-bottom:6px}
 .steps b{color:var(--teal-xd);font-size:15px;white-space:nowrap}
 .steps span{color:var(--muted);font-size:13.5px;line-height:1.5;text-wrap:pretty}
-@media(max-width:900px){.steps{grid-template-columns:1fr 1fr}}@media(max-width:480px){.steps{grid-template-columns:1fr}}
+@media(max-width:1000px){.steps{grid-template-columns:repeat(3,1fr)}}@media(max-width:700px){.steps{grid-template-columns:1fr 1fr}}@media(max-width:480px){.steps{grid-template-columns:1fr}}
 
 /* Barras de seção */
 .bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}.bar h2{margin:0;font-size:22px}
@@ -95,3 +95,12 @@ dialog h3{margin:0 0 4px}dialog table{margin:8px 0}dialog .tot{text-align:right;
 .ok-b{color:var(--teal-d);font-weight:700}.er-b{color:var(--crit);font-weight:700}.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}.tag.demo{background:#df632e14;color:var(--orange);border-color:#df632e55}
 #tab-ia table th,#tab-ia table td{padding:8px 10px}
 #iaKpis{grid-template-columns:repeat(4,1fr)}@media(max-width:900px){#iaKpis{grid-template-columns:repeat(2,1fr)}}
+
+/* Consulta às bases / equipamentos */
+.consulta{background:#2bb99f10;border:1px solid var(--teal);border-radius:14px;padding:12px 14px;font-size:14px}.consulta h4{margin:0 0 6px;font-size:14px;color:var(--teal-xd)}
+.consulta .alerta-rec{display:inline-block;background:#df632e1f;color:var(--orange);border:1px solid #df632e66;border-radius:99px;padding:1px 10px;font-size:12px;font-weight:700;margin-left:6px}
+.consulta ul{margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:13px}.consulta a{color:var(--teal-d);font-weight:700;cursor:pointer}
+.comp-bar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin:6px 0 12px}.comp-bar i{display:block;height:100%}
+.comp-leg{display:grid;gap:6px}.comp-leg div{display:flex;gap:8px;align-items:center;font-size:14px}.comp-leg i{width:12px;height:12px;border-radius:3px}.comp-leg b{margin-left:auto}
+#tbEquip tbody tr{cursor:pointer}.rec-n{color:var(--orange);font-weight:700}
+#kpis{grid-template-columns:repeat(5,1fr)}@media(max-width:1000px){#kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:560px){#kpis{grid-template-columns:repeat(2,1fr)}}

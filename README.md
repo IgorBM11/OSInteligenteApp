@@ -10,6 +10,22 @@ npm start          # http://localhost:3000
 npm run seed       # (opcional) recria o histórico fictício e a planilha
 ```
 
+## Alinhamento com a apresentação (https://igorbm11.github.io/OSInteligente/)
+| Na apresentação | No MVP |
+|---|---|
+| Registro por foto ou voz, sem formulário | Caixa central com voz e foto na hora |
+| Leitura pela IA: local, equipamento, tipo de serviço, ocorrência e prioridade | Idem (campos na mesma ordem do mock) |
+| **Chamado por setor, não por equipamento** (86% das OS prediais sem ativo) | Campo **Equipamento** (lista do Neovero) identificado pela IA; KPI "OS com equipamento identificado" |
+| Consulta às bases (ativo, histórico, almoxarifado) | Cartão **Consulta ao Neovero** na confirmação: OS em 90 dias, custo acumulado, recorrência e peças mais usadas |
+| Custo = mão de obra + peças + serviço externo | Abas MaoDeObra, **Pecas** (código padronizado PC-NNNN) e **ServicosExternos**; gráfico de composição |
+| Histórico, recorrência e custo por equipamento | Painel de equipamentos no dashboard (clicável) |
+| Abertura e fechamento automáticos | Horários gravados e exibidos na OS |
+| Indicadores atuais não distinguem o que vai bem do que vai mal ("100% no prazo") | SLA por prioridade (premissa: 4/24/72/168 h): % dentro do SLA e OS em atraso |
+| ~170 OS/dia em um hospital (OZN) | Projeções da aba Gestão da IA usam 170 OS/dia |
+| Manutenção predial primeiro, engenharia clínica depois | Campo **Área** (predial × engenharia clínica) por categoria do equipamento |
+
+**Fora do MVP (de propósito):** integrações com Sankhya, meuResíduo e TOTVS; almoxarifado completo (saldo, inventário, retirada sem reabrir); rondas/checklist; TI; validações de encerramento (assinatura); Helpdesk.
+
 ## O que o MVP faz
 | Tela | O que tem |
 |---|---|
@@ -22,7 +38,7 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de IA e é o formato do mock da apresentação). A foto é tirada na hora (câmera). A **leitura automática** de texto e foto usa a OpenAI (modelo com visão): defina `OPENAI_API_KEY` (e, opcionalmente, `OPENAI_MODEL`; padrão `gpt-6.2-sol`, com `gpt-4o` e `gpt-4o-mini` de reserva se o modelo não existir para a conta). O servidor envia o relato/imagem para sugerir ocorrência, equipamento, local e prioridade (*ainda não testado com chave real*). Sem a chave, valem só as regras e a foto fica apenas anexada, com os campos em vermelho. Se a IA falhar, o motivo técnico aparece no aviso do formulário.
 
 ## Simulador do Neovero
-`data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **Equipamentos**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
+`data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **Equipamentos**, **MaoDeObra**, **Pecas**, **ServicosExternos** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
 A aba **Equipamentos** (codigo_equipamento, equipamento, categoria) é a lista de equipamentos do hospital: alimenta o dropdown do formulário e a identificação pela IA. Para incluir um equipamento, adicione uma linha nessa aba. O app lê essa planilha a cada mudança (editar o Excel reflete no dashboard). OS sem linhas aparecem como "aguardando custo";
 no detalhe da OS o botão **Simular lançamento no Neovero** grava custos plausíveis na planilha. A integração real troca apenas `src/neovero.js` (`getCustos`, `getTodos`).
 
