@@ -15,6 +15,7 @@ npm run seed       # (opcional) recria o histórico fictício e a planilha
 |---|---|
 | **Registrar** | Caixa de texto central (estilo chat) com **voz** (microfone) e **foto tirada na hora** (câmera) → "Preencher com a IA" → campos preenchidos (verde = IA, laranja = confira, **vermelho = a IA não soube: preencher**) → confirmar. Aviso rápido (toast) ao registrar. Código gerado `OS-AAAA-NNNNN`. |
 | **Dashboard** | KPIs e gráficos clicáveis (abrem o Histórico já filtrado), **fila de prioridade** (OS em aberto: prioridade + dias parada + custo) e **maiores custos por OS**, ambos compactos com "ver lista completa". |
+| **Gestão da IA** | Acompanhamento da IA de registro: chamadas, taxa de sucesso, latência (média/p95), **tokens** (entrada/saída), **custo estimado**, qualidade (quanto o operador aceita sem corrigir, por campo), resultado e erros, modelos usados (principal × reserva), **armazenamento** (fotos e dados) com projeção para ~100 OS/dia, configuração (modelo, chave, versão do prompt) e alertas. Cada chamada é registrada em `data/ia_log.json`; o histórico de demonstração (marcado como *demo*) é gerado por `npm run seed`. |
 | **Histórico** | Todas as OS, com filtros e detalhe de custo (mão de obra + insumos). Mudança de status. |
 
 ### Escolha voz × imagem
@@ -24,6 +25,9 @@ Voz foi escolhida por ser a mais executável no MVP (zero custo, sem backend de 
 `data/neovero_simulador.xlsx` (também baixável no dashboard) com as abas **OS**, **Equipamentos**, **MaoDeObra** (tecnico, horas, valor_hora) e **Insumos** (descricao, qtd, valor_unit).
 A aba **Equipamentos** (codigo_equipamento, equipamento, categoria) é a lista de equipamentos do hospital: alimenta o dropdown do formulário e a identificação pela IA. Para incluir um equipamento, adicione uma linha nessa aba. O app lê essa planilha a cada mudança (editar o Excel reflete no dashboard). OS sem linhas aparecem como "aguardando custo";
 no detalhe da OS o botão **Simular lançamento no Neovero** grava custos plausíveis na planilha. A integração real troca apenas `src/neovero.js` (`getCustos`, `getTodos`).
+
+## Gestão da IA: variáveis opcionais
+`OPENAI_PRICE_IN_PER_M` e `OPENAI_PRICE_OUT_PER_M` (US$ por 1M de tokens; padrão 2,5 e 10 — **estimativa**, ajuste ao preço do modelo).
 
 ## Estrutura
 `server.js` (API + estáticos) · `src/parser.js` (decupagem por regras; trocável por LLM) · `src/neovero.js` · `src/dashboard.js` · `src/catalogo.js` · `data/locais.json` · `public/`

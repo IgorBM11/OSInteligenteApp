@@ -62,7 +62,7 @@ function resumoErro(e) {
   return `${e?.status ? 'HTTP ' + e.status + ': ' : ''}${String(msg).replace(/sk-[\w-]{8,}/g, '***').slice(0, 220)}`;
 }
 
-async function chamarModelo(params) {
+async function chamarModelo(params, meta) {
   const r = await fetch(`${BASE}/chat/completions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${chave()}`, 'content-type': 'application/json' },
@@ -70,15 +70,17 @@ async function chamarModelo(params) {
     signal: AbortSignal.timeout(60000),
   });
   const corpo = await r.json().catch(() => ({}));
+  if (r.ok && corpo.usage) { meta.tokens_in = corpo.usage.prompt_tokens || 0; meta.tokens_out = corpo.usage.completion_tokens || 0; }
   if (!r.ok) { const e = new Error(corpo?.error?.message || r.statusText); e.status = r.status; e.codigo = corpo?.error?.code; throw e; }
   return corpo;
 }
 
-async function chamar(params) {
+async function chamar(params, meta) {
   const modelos = [params.model, ...MODELOS_RESERVA.filter((m) => m !== params.model)];
   let ultimo;
   for (const model of modelos) {
-    try { return await chamarModelo({ ...params, model }); }
+    meta.tentativas = (meta.tentativas || 0) + 1;
+    try { const resp = await chamarModelo({ ...params, model }, meta); meta.modelo_usado = model; return resp; }
     catch (e) {
       ultimo = e;
       const modeloInvalido = e.status === 404 || e.codigo === 'model_not_found' || (e.status === 400 && /model/i.test(e.message || ''));
@@ -89,7 +91,7 @@ async function chamar(params) {
   throw ultimo;
 }
 
-async function interpretar(texto, foto, equipamentos = []) {
+async function interpretar(texto, foto, equipamentos = [], meta = {}) {
   if (!chave()) return { motivo: 'sem_chave' };
   const content = [{ type: 'text', text: montaPrompt(texto, !!foto, equipamentos) }];
   if (foto) {
@@ -97,12 +99,17 @@ async function interpretar(texto, foto, equipamentos = []) {
     content.push({ type: 'image_url', image_url: { url: foto } });
   }
 
-  const resp = await chamar({
-    model: process.env.OPENAI_MODEL || MODELO_PADRAO,
+  meta.modelo_pedido = process.env.OPENAI_MODEL || MODELO_PADRAO;
+  const t0 = Date.now();
+  let resp;
+  try {
+    resp = await chamar({
+    model: meta.modelo_pedido,
     max_completion_tokens: 1500,
     response_format: { type: 'json_object' },
     messages: [{ role: 'user', content }],
-  });
+    }, meta);
+  } finally { meta.latencia_ms = Date.now() - t0; }
   const msg = resp.choices?.[0]?.message;
   if (msg?.refusal) return { motivo: 'falha' };
   const out = msg?.content || '';
@@ -126,4 +133,13 @@ async function interpretar(texto, foto, equipamentos = []) {
     detalheLocal: String(j.detalheLocal || '').slice(0, 80), descricao: String(j.descricao || '').slice(0, 300),
   };
 }
-module.exports = { interpretar, resumoErro };
+// Versão do prompt (muda quando o texto-base muda): permite correlacionar qualidade com ajustes de prompt
+const PROMPT_VERSAO = require('crypto').createHash('sha1').update(montaPrompt('', false, []) + montaPrompt('x', true, [])).digest('hex').slice(0, 8);
+const PRECO = { entradaPorM: parseFloat(process.env.OPENAI_PRICE_IN_PER_M) || 2.5, saidaPorM: parseFloat(process.env.OPENAI_PRICE_OUT_PER_M) || 10 }; // US$ por 1M de tokens (ESTIMATIVA: ajuste ao preço do modelo)
+const custoUSD = (tin, tout) => ((tin || 0) * PRECO.entradaPorM + (tout || 0) * PRECO.saidaPorM) / 1e6;
+const config = () => ({
+  provedor: 'OpenAI', modelo: process.env.OPENAI_MODEL || MODELO_PADRAO, reserva: MODELOS_RESERVA,
+  chaveConfigurada: !!chave(), chaveVariavel: process.env.OPENAI_API_KEY ? 'OPENAI_API_KEY' : (chave() ? 'ANTHROPIC_API_KEY (nome antigo)' : null),
+  promptVersao: PROMPT_VERSAO, preco: PRECO,
+});
+module.exports = { interpretar, resumoErro, config, custoUSD, PROMPT_VERSAO };

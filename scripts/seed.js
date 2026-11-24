@@ -2,6 +2,7 @@
 // Gera histórico fictício: data/os.json (app) + data/neovero_simulador.xlsx (base de custos simulada).
 const store = require('../src/store');
 const nv = require('../src/neovero');
+const iaLog = require('../src/iaLog');
 const { locais, OCORRENCIAS, EQUIPAMENTOS, EQUIP_POR_OCORRENCIA } = require('../src/catalogo');
 
 let seed = 20261119;
@@ -52,5 +53,46 @@ for (const os of lista) {
 }
 
 store.replaceAll(lista);
+
+// ---- Histórico FICTÍCIO de chamadas da IA (demo = true), para a aba "Gestão da IA" ----
+{
+  const demo = [];
+  const CANAIS = ['texto', 'texto', 'texto', 'foto', 'texto+foto'];
+  const CAMPOS = ['ocorrencia', 'equipamento', 'ambiente', 'pavimento', 'prioridade'];
+  const ACEITE = { ocorrencia: 0.9, equipamento: 0.82, ambiente: 0.77, pavimento: 0.8, prioridade: 0.84 };
+  const COBERT = { ocorrencia: 0.97, equipamento: 0.7, ambiente: 0.72, pavimento: 0.75, prioridade: 0.97 };
+  const ERROS = ['HTTP 429: Rate limit reached', 'timeout: The operation was aborted due to timeout', 'resposta sem JSON (finish_reason=length)', 'HTTP 503: The server is overloaded'];
+  for (let d = 29; d >= 0; d--) {
+    const dow = new Date(HOJE.getTime() - d * 86400000).getDay();
+    const n = Math.round((dow === 0 || dow === 6 ? 4 : 13) * (0.7 + rnd() * 0.7) * (1 + (29 - d) / 80)); // cresce levemente com a adoção
+    for (let i = 0; i < n; i++) {
+      const canal = pick(CANAIS), temFoto = canal !== 'texto';
+      const ts = new Date(HOJE.getTime() - d * 86400000 - Math.floor(rnd() * 9 * 3600000)).toISOString();
+      const r = rnd();
+      const resultado = r < 0.055 ? 'erro' : r < 0.06 ? 'recusa' : 'ok';
+      const fallback = resultado === 'ok' && rnd() < 0.035;
+      const base = 1350 + Math.floor(rnd() * 120);                  // prompt-base (instruções + listas)
+      const tin = resultado === 'ok' ? base + (temFoto ? 700 + Math.floor(rnd() * 400) : 0) : 0;
+      const tout = resultado === 'ok' ? 85 + Math.floor(rnd() * 70) : 0;
+      const lat = resultado === 'ok' ? Math.round((temFoto ? 2600 : 1300) + rnd() * (temFoto ? 3200 : 1500) + (rnd() < 0.04 ? 5000 : 0)) : Math.round(800 + rnd() * 6000);
+      const custo = (tin * 2.5 + tout * 10) / 1e6;
+      const e = { id: 'demo' + demo.length, ts, canal, resultado, erro: resultado === 'ok' ? null : (resultado === 'recusa' ? null : pick(ERROS)),
+        fotoKB: temFoto ? 90 + Math.floor(rnd() * 140) : 0, chars: temFoto && canal === 'foto' ? 0 : 30 + Math.floor(rnd() * 140),
+        modelo_pedido: 'gpt-6.2-sol', modelo_usado: resultado === 'ok' ? (fallback ? 'gpt-4o' : 'gpt-6.2-sol') : null, tentativas: fallback ? 2 : 1,
+        tokens_in: tin, tokens_out: tout, latencia_ms: lat, custo_usd: custo, prompt: 'demo', sugestao: {}, demo: true };
+      if (resultado === 'ok' && rnd() < 0.92) { // 92% das sugestões chegam a ser confirmadas em uma OS
+        e.revisao = {};
+        for (const c of CAMPOS) {
+          const cobre = rnd() < COBERT[c] * (temFoto && c === 'equipamento' ? 1.25 : 1) * (canal === 'foto' && (c === 'ambiente' || c === 'pavimento') ? 0.35 : 1);
+          e.revisao[c] = cobre ? (rnd() < ACEITE[c] ? 'mantido' : 'alterado') : (rnd() < 0.45 ? 'preenchido' : 'vazio');
+        }
+      }
+      demo.push(e);
+    }
+  }
+  demo.sort((a, b) => a.ts.localeCompare(b.ts));
+  iaLog.replaceAll(demo);
+  console.log(`Log da IA (demonstração): ${demo.length} chamadas.`);
+}
 const eqRows = EQUIPAMENTOS.map((e, i) => ({ codigo_equipamento: 'EQ-' + String(i + 1).padStart(3, '0'), equipamento: e.nome, categoria: e.categoria }));
 nv.writeWorkbook(osNv, { mo, ins }, eqRows).then(() => console.log(`OK: ${lista.length} OS, ${osNv.length} com custos no Neovero simulado.`));

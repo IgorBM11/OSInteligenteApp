@@ -18,6 +18,7 @@
     <button data-tab="registrar" class="on">Registrar</button>
     <button data-tab="dashboard">Dashboard</button>
     <button data-tab="historico">Histórico</button>
+    <button data-tab="ia">Gestão da IA</button>
   </nav>
 </header>
 
@@ -103,6 +104,32 @@
   <div id="chips" class="chips"></div>
   <div class="card tbl-wrap"><table id="tbl"><thead><tr><th>Código</th><th>Abertura</th><th>Local</th><th>Ocorrência</th><th>Prioridade</th><th>Status</th><th class="r">Custo (Neovero)</th></tr></thead><tbody></tbody></table></div>
   <p class="muted note">Custos pendentes aparecem assim que forem lançados no Neovero. Na demonstração, abra a OS e use “Simular lançamento no Neovero”.</p>
+</section>
+
+<!-- GESTÃO DA IA -->
+<section id="tab-ia" class="tab">
+  <div class="bar"><div><h2>Gestão da IA</h2><span class="muted" id="iaAt">Acompanhamento da IA que interpreta e preenche as ordens de serviço</span></div>
+    <div class="filters-inline"><select id="iaDias"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="0">Todo o período</option></select>
+    <select id="iaOrigem"><option value="todos">Reais + demonstração</option><option value="reais">Somente reais</option></select></div></div>
+  <div id="iaAlertas" class="alertas"></div>
+  <div id="iaKpis" class="kpis"></div>
+  <div class="cols">
+    <div class="card"><h3>Chamadas por dia <small>(sucesso × erro)</small></h3><div id="iaDia"></div></div>
+    <div class="card"><h3>Tokens por dia <small>(entrada × saída)</small></h3><div id="iaTokens"></div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Qualidade das sugestões por campo</h3><small class="muted">“Preenchido pela IA”: a IA sugeriu um valor. “Aceito”: o operador manteve o valor sugerido.</small><div id="iaCampos"></div></div>
+    <div class="card"><h3>Resultado das chamadas</h3><div id="iaResultado"></div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Desempenho por canal de entrada</h3><div class="tbl-wrap"><table id="iaCanais"></table></div></div>
+    <div class="card"><h3>Modelos utilizados</h3><div class="tbl-wrap"><table id="iaModelos"></table></div><div id="iaErros"></div></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Armazenamento</h3><div id="iaArm"></div></div>
+    <div class="card"><h3>Configuração e projeção</h3><div id="iaCfg"></div></div>
+  </div>
+  <div class="card"><h3>Últimas chamadas</h3><div class="tbl-wrap"><table id="iaUltimas"></table></div></div>
 </section>
 </main>
 

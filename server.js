@@ -5,7 +5,10 @@ const path = require('path');
 const store = require('./src/store');
 const nv = require('./src/neovero');
 const { parseOS, vazio } = require('./src/parser');
-const { interpretar, resumoErro } = require('./src/vision');
+const { interpretar, resumoErro, custoUSD, PROMPT_VERSAO } = require('./src/vision');
+const iaLog = require('./src/iaLog');
+const iaPainel = require('./src/ia');
+const crypto = require('crypto');
 const dash = require('./src/dashboard');
 const { locais, PRIORIDADES, OCORRENCIAS } = require('./src/catalogo');
 
@@ -38,9 +41,11 @@ async function api(req, res, url) {
     const d = t ? parseOS(t, listaEq) : vazio();
     // IA (OpenAI) tem prioridade sobre as regras quando há chave; regras preenchem o que a IA deixar vazio.
     let status = foto ? 'falha' : null;
+    const meta = {};
+    let resultadoIA = 'ok'; // ok | regras (sem chave) | recusa | erro
     try {
-      const v = await interpretar(t, foto, listaEq);
-      if (v && v.motivo) { if (foto) status = v.motivo; }
+      const v = await interpretar(t, foto, listaEq, meta);
+      if (v && v.motivo) { if (foto) status = v.motivo; resultadoIA = v.motivo === 'sem_chave' ? 'regras' : 'recusa'; }
       else if (v) {
         if (foto) status = 'lida';
         const regras = { ...d };
@@ -51,8 +56,19 @@ async function api(req, res, url) {
         if (v.ambiente) c.local = 'ia';
         if (v.equipamento) c.equipamento = 'ia';
       }
-    } catch (e) { d._erro = resumoErro(e); console.error('interpretação por IA falhou:', d._erro); }
+    } catch (e) { d._erro = resumoErro(e); resultadoIA = 'erro'; console.error('interpretação por IA falhou:', d._erro); }
     d._foto = status;
+    // registro para a aba "Gestão da IA"
+    const id = crypto.randomUUID().slice(0, 12);
+    iaLog.add({
+      id, ts: new Date().toISOString(), canal: foto && t ? 'texto+foto' : foto ? 'foto' : 'texto', resultado: resultadoIA, erro: d._erro || null,
+      fotoKB: foto ? Math.round(foto.length * 0.75 / 1024) : 0, chars: t.length,
+      modelo_pedido: meta.modelo_pedido || null, modelo_usado: meta.modelo_usado || null, tentativas: meta.tentativas || 0,
+      tokens_in: meta.tokens_in || 0, tokens_out: meta.tokens_out || 0, latencia_ms: meta.latencia_ms || 0,
+      custo_usd: custoUSD(meta.tokens_in, meta.tokens_out), prompt: PROMPT_VERSAO,
+      sugestao: { ocorrencia: d.ocorrencia, equipamento: d.equipamento, ambiente: d.ambiente, pavimento: d.pavimento, prioridade: d.prioridade }, demo: false,
+    });
+    d._id = id;
     return send(res, 200, d);
   }
   if (req.method === 'POST' && p === '/api/os') {
@@ -72,6 +88,7 @@ async function api(req, res, url) {
       tipo: clean(b.tipo, 80), ocorrencia: clean(b.ocorrencia, 80), equipamento: equipamentoValido, causa: clean(b.causa, 120), prioridade: b.prioridade, descricao: clean(b.descricao, 2000) || (b.foto ? 'Registro por foto.' : clean(b.ocorrencia, 80)),
       canal: ['voz', 'texto', 'foto'].includes(b.canal) ? b.canal : 'texto', registradoPor: clean(b.registradoPor, 60) || 'Operação', foto };
     store.add(os);
+    if (b.parseId) iaLog.registrarRevisao(String(b.parseId), { ocorrencia: os.ocorrencia, equipamento: os.equipamento, ambiente: os.ambiente, pavimento: os.pavimento, prioridade: os.prioridade }, os.codigo);
     return send(res, 201, os);
   }
   let m;
@@ -93,6 +110,7 @@ async function api(req, res, url) {
     await nv.lancarCustosSimulados(os);
     return send(res, 200, await osComCusto(m[1]));
   }
+  if (req.method === 'GET' && p === '/api/ia') return send(res, 200, await iaPainel.build({ dias: parseInt(url.searchParams.get('dias'), 10) || 30, origem: url.searchParams.get('origem') || 'todos' }));
   if (req.method === 'GET' && p === '/api/dashboard') return send(res, 200, await dash.build());
   if (req.method === 'GET' && p === '/neovero/planilha.xlsx') {
     res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="neovero_simulador.xlsx"' });

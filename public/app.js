@@ -9,7 +9,7 @@ const badge = (p) => `<span class="badge b-${p}">${p}</span>`;
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const COR = { Crítica: '#c0392b', Alta: '#df632e', Média: '#3f86a8', Baixa: '#8a9ba0' };
 const PESO = { Crítica: 3, Alta: 2, Média: 1, Baixa: 0 };
-let cfg, dashData, foto = null, canal = 'texto';
+let cfg, dashData, foto = null, canal = 'texto', parseId = null;
 let hf = {}; // filtros do histórico
 
 async function j(url, opt) { const r = await fetch(url, opt); const d = await r.json(); if (!r.ok) throw new Error(d.erro || 'Erro'); return d; }
@@ -23,7 +23,7 @@ function abrirAba(nome) {
   document.querySelectorAll('nav button,.tab').forEach((e) => e.classList.remove('on'));
   document.querySelector(`nav [data-tab=${nome}]`).classList.add('on'); $('#tab-' + nome).classList.add('on');
   window.scrollTo(0, 0);
-  if (nome !== 'registrar') loadDash();
+  if (nome === 'ia') loadIA(); else if (nome !== 'registrar') loadDash();
 }
 document.querySelectorAll('nav button').forEach((b) => b.onclick = () => { if (b.dataset.tab === 'historico') hf = {}; abrirAba(b.dataset.tab); });
 $('#home').onclick = (e) => { e.preventDefault(); abrirAba('registrar'); };
@@ -108,6 +108,7 @@ async function decupar() {
     const d = await post('/api/parse', { texto, foto });
     $('#f-pavimento').value = d.pavimento; $('#f-ambiente').value = d.ambiente; $('#f-detalhe').value = d.detalheLocal; $('#f-equipamento').value = d.equipamento || '';
     $('#f-ocorrencia').value = d.ocorrencia; $('#f-tipo').value = d.tipo; $('#f-causa').value = d.causa; $('#f-prioridade').value = d.prioridade; $('#f-descricao').value = d.descricao;
+    parseId = d._id || null;
     const faltam = marcar(d._confianca);
     const msgs = [];
     if (d._foto === 'sem_chave') msgs.push('📷 Foto anexada, mas a leitura automática está desativada (falta configurar a chave OPENAI_API_KEY no servidor).');
@@ -127,10 +128,10 @@ $('#form').onsubmit = async (e) => {
   const faltam = CAMPOS.filter(([id, , req]) => req && !$('#' + id).value);
   if (faltam.length) { faltam.forEach(([id]) => setS(id, 'vazio')); $('#' + faltam[0][0]).focus(); toast('Preencha os campos destacados em vermelho.'); return; }
   try {
-    const os = await post('/api/os', { pavimento: $('#f-pavimento').value, ambiente: $('#f-ambiente').value, detalheLocal: $('#f-detalhe').value, equipamento: $('#f-equipamento').value, ocorrencia: $('#f-ocorrencia').value, tipo: $('#f-tipo').value, causa: $('#f-causa').value, prioridade: $('#f-prioridade').value, descricao: $('#f-descricao').value, canal, foto });
+    const os = await post('/api/os', { pavimento: $('#f-pavimento').value, ambiente: $('#f-ambiente').value, detalheLocal: $('#f-detalhe').value, equipamento: $('#f-equipamento').value, ocorrencia: $('#f-ocorrencia').value, tipo: $('#f-tipo').value, causa: $('#f-causa').value, prioridade: $('#f-prioridade').value, descricao: $('#f-descricao').value, canal, foto, parseId: parseId });
     toast(`✅ <span><b>${os.codigo}</b> registrada</span> <a id="tVer">Ver no histórico</a>`);
     $('#tVer').onclick = () => irHistorico({ q: os.codigo });
-    $('#form').classList.add('hidden'); $('#texto').value = ''; foto = null; $('#fotoChip').classList.add('hidden'); canal = 'texto'; window.scrollTo({ top: 0, behavior: 'smooth' });
+    $('#form').classList.add('hidden'); $('#texto').value = ''; foto = null; parseId = null; $('#fotoChip').classList.add('hidden'); canal = 'texto'; window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) { toast(esc(err.message)); }
 };
 
@@ -229,4 +230,69 @@ async function abrirOS(codigo) {
   });
 }
 $('#dlgClose').onclick = () => $('#dlg').close();
+
+// ---------- Gestão da IA ----------
+const fmtN = (n) => (n || 0).toLocaleString('pt-BR');
+const bytes = (b) => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : b < 1073741824 ? (b / 1048576).toFixed(1) + ' MB' : (b / 1073741824).toFixed(2) + ' GB';
+const usd = (v, d = 2) => 'US$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const seg = (ms) => ms ? (ms / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' s' : '—';
+const pc = (v) => v == null ? '—' : v.toLocaleString('pt-BR') + '%';
+const ROT_CAMPO = { ocorrencia: 'Ocorrência', equipamento: 'Equipamento', ambiente: 'Ambiente', pavimento: 'Pavimento', prioridade: 'Prioridade' };
+const ROT_RES = { ok: 'Sucesso', erro: 'Erro (usou regras)', recusa: 'Recusa da IA', regras: 'Só regras (sem chave)' };
+const COR_RES = { ok: '#2bb99f', erro: '#df632e', recusa: '#c0392b', regras: '#8a9ba0' };
+
+function pilhas(el, dias, a, b, fmt) {
+  const max = Math.max(1, ...dias.map((d) => a(d) + b(d)));
+  $(el).innerHTML = `<div class="stk-chart">${dias.map((d) => `<div class="stk" title="${d.dia.split('-').reverse().slice(0, 2).join('/')}: ${fmt(a(d))} + ${fmt(b(d))}"><i class="${el === '#iaDia' ? 'b' : 'c'}" style="height:${b(d) / max * 100}%"></i><i class="a" style="height:${a(d) / max * 100}%"></i></div>`).join('')}</div>
+    <div class="stk-lab">${dias.map((d, i) => `<span>${i % Math.ceil(dias.length / 6) === 0 ? d.dia.split('-').reverse().slice(0, 2).join('/') : ''}</span>`).join('')}</div>`;
+}
+async function loadIA() {
+  const q = `?dias=${$('#iaDias').value}&origem=${$('#iaOrigem').value}`;
+  const d = await j('/api/ia' + q), k = d.kpis;
+  $('#iaAt').textContent = 'Atualizado às ' + new Date(d.geradoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + ' · ' + d.config.provedor + ' · ' + d.config.modelo;
+  $('#iaAlertas').innerHTML = d.alertas.map((x) => `<div class="alerta ${x.nivel}"><b>${{ alto: '⚠️ Atenção', medio: '⚠️ Verificar', baixo: 'ℹ️ Nota', info: 'ℹ️ Info' }[x.nivel]}</b><span>${esc(x.msg)}</span></div>`).join('');
+  const kp = [
+    [fmtN(k.chamadas), 'Chamadas à IA', k.regrasApenas ? `${k.regrasApenas} só com regras` : 'no período'],
+    [pc(k.sucesso), 'Taxa de sucesso', 'chamadas que a IA respondeu'],
+    [seg(k.latMedia), 'Latência média', 'p95: ' + seg(k.latP95)],
+    [fmtN(k.tokensTotal), 'Tokens consumidos', `${fmtN(k.tokensEntrada)} entrada · ${fmtN(k.tokensSaida)} saída`],
+    [usd(k.custoUSD), 'Custo estimado', 'por chamada: ' + usd(k.custoPorChamadaUSD, 4)],
+    [pc(k.semCorrecao), 'OS aceitas sem correção', k.corrigidosPorOS == null ? 'sem OS confirmadas' : `${String(k.corrigidosPorOS).replace('.', ',')} campos corrigidos por OS`],
+    [pc(k.pctComFoto), 'Chamadas com foto', `~${fmtN(k.mediaTokensPorChamada)} tokens por chamada`],
+    [bytes(d.armazenamento.totalBytes), 'Armazenamento em uso', `${d.armazenamento.fotos} foto(s) salva(s)`],
+  ];
+  $('#iaKpis').innerHTML = kp.map(([v, l, s]) => `<div class="kpi static"><b>${v}</b><span>${l}</span><small>${esc(s)}</small></div>`).join('');
+
+  pilhas('#iaDia', d.porDia, (x) => x.chamadas - x.erros, (x) => x.erros, fmtN);
+  $('#iaDia').insertAdjacentHTML('beforeend', '<div class="legenda"><span><i style="background:var(--teal)"></i>Sucesso</span><span><i style="background:var(--orange)"></i>Erro / recusa</span></div>');
+  pilhas('#iaTokens', d.porDia, (x) => x.tin, (x) => x.tout, fmtN);
+  $('#iaTokens').insertAdjacentHTML('beforeend', '<div class="legenda"><span><i style="background:var(--teal)"></i>Entrada (prompt + imagem)</span><span><i style="background:var(--teal-xd)"></i>Saída (resposta)</span></div>');
+
+  $('#iaCampos').innerHTML = `<div class="dual"><span></span><span class="h">Preenchido pela IA</span><span class="h">Aceito sem alteração</span></div>` + d.campos.map((c) =>
+    `<div class="dual"><b>${ROT_CAMPO[c.campo]}</b><div><div class="mini"><i style="width:${c.cobertura || 0}%"></i></div><div class="mini-v">${pc(c.cobertura)}</div></div><div><div class="mini"><i class="${c.aceite != null && c.aceite < 70 ? 'w' : ''}" style="width:${c.aceite || 0}%"></i></div><div class="mini-v">${pc(c.aceite)}</div></div></div>`).join('')
+    + `<p class="muted" style="margin:10px 0 0">Base: ${fmtN(k.revisadas)} OS com sugestão da IA já confirmadas pelo operador.</p>`;
+
+  const totR = d.resultados.reduce((s, x) => s + x.qtd, 0); let acc = 0;
+  const grad = totR ? d.resultados.filter((x) => x.qtd).map((x) => { const a0 = acc / totR * 100; acc += x.qtd; return `${COR_RES[x.chave]} ${a0}% ${acc / totR * 100}%`; }).join(',') : '#e1eaea 0 100%';
+  $('#iaResultado').innerHTML = `<div class="donut-wrap"><div class="donut" data-total="${fmtN(totR)}" style="background:conic-gradient(${grad})"></div><div class="leg">${d.resultados.map((x) => `<button style="cursor:default"><i style="background:${COR_RES[x.chave]}"></i>${ROT_RES[x.chave]}<b>${fmtN(x.qtd)}</b></button>`).join('')}</div></div>`;
+
+  $('#iaCanais').innerHTML = `<tr><th>Canal</th><th class="r">Chamadas</th><th class="r">Sucesso</th><th class="r">Latência média</th><th class="r">p95</th><th class="r">Tokens/chamada</th><th class="r">Custo médio</th></tr>` + d.canais.map((c) => `<tr><td><b>${{ texto: 'Texto / voz', foto: 'Só foto', 'texto+foto': 'Texto + foto' }[c.canal]}</b></td><td class="r">${fmtN(c.chamadas)}</td><td class="r">${pc(c.sucesso)}</td><td class="r">${seg(c.latMedia)}</td><td class="r">${seg(c.latP95)}</td><td class="r">${fmtN(c.tokensMedios)}</td><td class="r">${usd(c.custoMedio, 4)}</td></tr>`).join('');
+  $('#iaModelos').innerHTML = `<tr><th>Modelo</th><th class="r">Chamadas</th><th class="r">Tokens</th><th class="r">Custo</th></tr>` + (d.modelos.map((m) => `<tr><td><b>${esc(m.modelo)}</b>${m.modelo !== d.config.modelo ? ' <span class="tag">reserva</span>' : ' <span class="tag">principal</span>'}</td><td class="r">${fmtN(m.chamadas)}</td><td class="r">${fmtN(m.tokens)}</td><td class="r">${usd(m.custo)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Sem chamadas bem-sucedidas no período.</td></tr>');
+  $('#iaErros').innerHTML = d.errosAgrup.length ? `<div class="sec-h">Principais erros</div>` + d.errosAgrup.map((e) => `<div class="muted" style="display:flex;justify-content:space-between;gap:10px;padding:3px 0"><span>${esc(e.erro)}</span><b class="er-b">${e.qtd}×</b></div>`).join('') : '';
+
+  const maxA = Math.max(1, ...d.armazenamento.itens.map((i) => i.bytes)), pj = d.projecao;
+  $('#iaArm').innerHTML = `<div class="hbars">${d.armazenamento.itens.map((i) => `<div class="b" style="cursor:default"><span title="${esc(i.detalhe)}">${esc(i.nome)}</span><div class="t"><i style="width:${Math.max(2, i.bytes / maxA * 100)}%"></i></div><span>${bytes(i.bytes)}</span></div>`).join('')}</div>
+    <p class="muted" style="margin:8px 0 0">Total em disco: <b>${bytes(d.armazenamento.totalBytes)}</b>. No plano gratuito do Render o disco é temporário: os arquivos voltam ao estado inicial a cada reinício.</p>
+    <div class="sec-h">Projeção para ~${pj.osPorDia} OS/dia (um hospital)</div>
+    <dl class="kv"><dt>Foto média (${pj.pctFoto}% das chamadas)</dt><dd>${pj.fotoMedKB} KB</dd><dt>Fotos por mês</dt><dd>~${fmtN(pj.fotosMesMB)} MB</dd><dt>Fotos por ano</dt><dd>~${String(pj.fotosAnoGB).replace('.', ',')} GB</dd><dt>Tokens por mês</dt><dd>~${fmtN(pj.tokensMes)}</dd><dt>Custo da IA por mês</dt><dd>~${usd(pj.custoMesUSD)}</dd></dl>`;
+
+  const cf = d.config;
+  $('#iaCfg').innerHTML = `<dl class="kv"><dt>Provedor</dt><dd>${esc(cf.provedor)}</dd><dt>Modelo principal</dt><dd>${esc(cf.modelo)}</dd><dt>Modelos de reserva</dt><dd>${cf.reserva.map(esc).join(', ')}</dd>
+    <dt>Chave da API</dt><dd class="${cf.chaveConfigurada ? 'ok-b' : 'er-b'}">${cf.chaveConfigurada ? 'configurada (' + esc(cf.chaveVariavel) + ')' : 'não configurada'}</dd><dt>Versão do prompt</dt><dd><code>${esc(cf.promptVersao)}</code></dd>
+    <dt>Preço usado na estimativa</dt><dd>US$ ${cf.preco.entradaPorM} entrada · US$ ${cf.preco.saidaPorM} saída / 1M tokens</dd></dl>
+    <p class="muted" style="margin:10px 0 0">Os valores em dólar são <b>estimativas</b> com o preço acima. Ajuste conforme o modelo no Render: <code>OPENAI_PRICE_IN_PER_M</code> e <code>OPENAI_PRICE_OUT_PER_M</code>. A versão do prompt muda sempre que o texto-base é alterado.</p>`;
+
+  $('#iaUltimas').innerHTML = `<tr><th>Quando</th><th>Canal</th><th>Resultado</th><th>Modelo</th><th class="r">Tokens</th><th class="r">Latência</th><th class="r">Custo</th><th>OS / erro</th></tr>` + d.ultimas.map((u) => `<tr><td>${new Date(u.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}${u.demo ? ' <span class="tag demo">demo</span>' : ''}</td><td>${u.canal}</td><td class="${u.resultado === 'ok' ? 'ok-b' : 'er-b'}">${ROT_RES[u.resultado]}</td><td>${esc(u.modelo || '—')}</td><td class="r">${fmtN(u.tokens)}</td><td class="r">${seg(u.latencia_ms)}</td><td class="r">${usd(u.custo_usd, 4)}</td><td class="muted" style="white-space:normal;max-width:260px">${u.os ? esc(u.os) : esc(u.erro || '')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">Nenhuma chamada no período.</td></tr>';
+}
+$('#iaDias').onchange = loadIA; $('#iaOrigem').onchange = loadIA;
 init();
